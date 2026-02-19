@@ -32,6 +32,30 @@ EOF
   printf "${NC}"
 }
 
+check_node() {
+  if ! command -v node &>/dev/null; then
+    error "Node.js is required but not installed."
+    printf "  Install it from: ${CYAN}https://nodejs.org${NC}\n"
+    exit 1
+  fi
+  local node_major
+  node_major=$(node -e "process.stdout.write(String(process.versions.node.split('.')[0]))")
+  if [ "$node_major" -lt 18 ]; then
+    error "Node.js >= 18 required (found v$(node --version))."
+    exit 1
+  fi
+}
+
+install_cli() {
+  if command -v elestio &>/dev/null; then
+    info "Updating Elestio CLI..."
+  else
+    info "Installing Elestio CLI..."
+  fi
+  npm install -g elestio --silent 2>/dev/null || npm install -g elestio
+  completed "Elestio CLI installed ($(elestio --version 2>/dev/null || echo 'latest'))"
+}
+
 install_skill() {
   local skills_dir="$1"
   local name="$2"
@@ -42,12 +66,7 @@ install_skill() {
   rm -rf "$dest" 2>/dev/null || true
   mkdir -p "$dest"
 
-  # Copy skill files (exclude repo-only files)
   cp "$temp_dir/SKILL.md" "$dest/"
-  cp "$temp_dir/cli.js" "$dest/"
-  cp "$temp_dir/package.json" "$dest/"
-  cp -R "$temp_dir/lib" "$dest/"
-  cp -R "$temp_dir/templates" "$dest/"
 
   completed "$name: skill installed ${CYAN}$dest${NC}"
 }
@@ -80,7 +99,13 @@ fi
 
 print_banner
 
-info "Downloading from ${CYAN}$REPO${NC}..."
+# Install the official Elestio CLI
+check_node
+install_cli
+printf "\n"
+
+# Download skill files
+info "Downloading skill from ${CYAN}$REPO${NC}..."
 temp_dir=$(mktemp -d)
 git clone --depth 1 --quiet "$REPO" "$temp_dir"
 printf "\n"

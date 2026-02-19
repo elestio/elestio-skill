@@ -4,6 +4,8 @@ Agent skill for [Elestio](https://elest.io), following the [Agent Skills](https:
 
 Deploy and manage services on the Elestio DevOps platform. 400+ open-source templates, 9 cloud providers, 100+ regions.
 
+Uses the **official Elestio CLI** (`npm install -g elestio`).
+
 ## Installation
 
 ```bash
@@ -18,23 +20,27 @@ npx skills add elestio/elestio-skill
 
 Supports Claude Code, OpenAI Codex, OpenCode, and Cursor. Re-run to update.
 
+The installer will:
+1. Install the official Elestio CLI globally (`npm install -g elestio`)
+2. Copy `SKILL.md` to your agent's skills directory
+
 ### Manual Installation
 
 <details>
 <summary>Copy to your agent's skills directory</summary>
 
-Copy the skill files to your agent's skills directory:
-
 ```bash
+# 1. Install the official Elestio CLI
+npm install -g elestio
+
+# 2. Copy the skill file
 # Claude Code
 mkdir -p ~/.claude/skills/elestio
-cp SKILL.md cli.js package.json ~/.claude/skills/elestio/
-cp -R lib templates ~/.claude/skills/elestio/
+cp SKILL.md ~/.claude/skills/elestio/
 
 # Codex
 mkdir -p ~/.codex/skills/elestio
-cp SKILL.md cli.js package.json ~/.codex/skills/elestio/
-cp -R lib templates ~/.codex/skills/elestio/
+cp SKILL.md ~/.codex/skills/elestio/
 ```
 
 </details>
@@ -43,20 +49,20 @@ cp -R lib templates ~/.codex/skills/elestio/
 
 ```bash
 # Configure credentials
-node cli.js config --email "you@example.com" --token "your_api_token"
+elestio login --email "you@example.com" --token "your_api_token"
 
 # Verify authentication
-node cli.js auth test
+elestio auth test
 
 # Search the catalog
-node cli.js templates search postgresql
+elestio templates search postgresql
 
 # Deploy PostgreSQL
-node cli.js services deploy postgresql --project 112 --name my-db
+elestio deploy postgresql --project 112 --name my-db
 
 # Deploy from GitHub (fully automated)
-node cli.js services deploy cicd --project 112 --name my-cicd
-node cli.js cicd create-pipeline --mode github --repo owner/repo --target <vmID> --name my-app
+elestio deploy cicd --project 112 --name my-cicd
+elestio cicd create --auto --target <vmID> --name my-app --repo owner/repo --mode github
 ```
 
 ## Repository Structure
@@ -64,29 +70,11 @@ node cli.js cicd create-pipeline --mode github --repo owner/repo --target <vmID>
 ```
 elestio-skill/
 ├── SKILL.md              # Skill instructions (read by agents)
-├── cli.js                # CLI entry point
-├── lib/                  # CLI modules
-│   ├── api.js            # HTTP client, JWT management
-│   ├── auth.js           # Config, auth test
-│   ├── utils.js          # Arg parser, formatters
-│   ├── templates.js      # Template catalog, server sizes
-│   ├── projects.js       # Project CRUD
-│   ├── services.js       # Deploy, list, delete, move
-│   ├── actions.js        # Power, firewall, SSL, SSH keys, resize
-│   ├── access.js         # Credentials, SSH, VSCode URLs
-│   ├── backups.js        # Local/remote/S3 backups, snapshots
-│   ├── volumes.js        # Block storage CRUD
-│   ├── cicd.js           # CI/CD pipelines, auto-create
-│   └── billings.js       # Cost tracking
-├── templates/
-│   └── pipeline-docker.json
-├── package.json
 ├── scripts/
-│   └── install.sh        # Universal installer
-└── README.md
+│   └── install.sh        # Installer (CLI + skill file)
+├── README.md
+└── .gitignore
 ```
-
-Zero npm dependencies. Built on Node.js built-ins (`fs`, `path`, `url`, `child_process`, `dns/promises`, native `fetch`).
 
 ## Requirements
 
@@ -95,6 +83,7 @@ Zero npm dependencies. Built on Node.js built-ins (`fs`, `path`, `url`, `child_p
 
 ## References
 
+- [Elestio CLI (npm)](https://www.npmjs.com/package/elestio)
 - [Agent Skills Specification](https://agentskills.io/specification)
 - [Elestio Dashboard](https://dash.elest.io)
 - [Elestio API Docs](https://api-doc.elest.io)

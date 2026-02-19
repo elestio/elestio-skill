@@ -1,20 +1,22 @@
 ---
 name: elestio
 description: Deploy and manage services on the Elestio DevOps platform. Use when the user wants to deploy apps, databases, or infrastructure on Elestio, manage projects, services, CI/CD pipelines, backups, domains, firewall, volumes, or billing. Covers 400+ open-source templates across 9 cloud providers.
-compatibility: Requires Node.js >= 18 and an Elestio account with API token
+compatibility: Requires Node.js >= 18, the official Elestio CLI (npm install -g elestio), and an Elestio account with API token
 metadata:
   author: getateam
-  version: "1.5"
+  version: "2.0"
 ---
 
 # Elestio Skill
 
-**Version:** 1.5
+**Version:** 2.0
 **Purpose:** Deploy and manage services on Elestio DevOps platform
 **Status:** Ready to use
-**Last Updated:** 2026-02-17
+**Last Updated:** 2026-02-19
 
 Elestio is a fully managed DevOps platform. Dedicated VMs (not shared Kubernetes). 400+ open-source templates, 9 cloud providers, 100+ regions. Handles deployment, security, updates, backups, monitoring, support.
+
+This skill uses the **official Elestio CLI** (`elestio` command, installed via `npm install -g elestio`).
 
 ---
 
@@ -29,12 +31,12 @@ Use this skill when:
 - User asks about service status, costs, or credentials
 
 **Trigger phrases:**
-- "Deploy PostgreSQL" -> `services deploy postgresql`
-- "I need a Redis cache" -> `services deploy redis`
-- "Set up n8n for automation" -> `services deploy n8n`
+- "Deploy PostgreSQL" -> `elestio deploy postgresql`
+- "I need a Redis cache" -> `elestio deploy redis`
+- "Set up n8n for automation" -> `elestio deploy n8n`
 - "Deploy my app from GitHub" -> CI/CD workflow (Phase 4)
-- "What services are running?" -> `services list`
-- "How much is this costing?" -> `billing summary`
+- "What services are running?" -> `elestio services`
+- "How much is this costing?" -> `elestio billing`
 
 ## When NOT to Use This Skill
 
@@ -49,25 +51,25 @@ Use this skill when:
 ```
 Does user want to deploy their own custom code?
 +-- YES (from GitHub/GitLab) -> Automated CI/CD deployment
-|   1. services deploy cicd --project <id>
-|   2. cicd create-pipeline --mode github --repo owner/repo --target <vmID> --name my-app
+|   1. elestio deploy cicd --project <id>
+|   2. elestio cicd create --auto --target <vmID> --name my-app --repo owner/repo --mode github
 |   (CLI auto-handles: SSH key, repo discovery, Dockerfile fix, build, start)
 |
 +-- YES (custom Docker) -> Manual CI/CD
-|   1. services deploy cicd --project <id>
-|   2. ssh-keys <vmID> add "name" "key"
-|   3. cicd create-pipeline --config pipeline.json
+|   1. elestio deploy cicd --project <id>
+|   2. elestio ssh-keys add <vmID> --name "name" --key "key"
+|   3. elestio cicd create <pipeline.json>
 |   4. SSH in and configure
 |
 +-- NO -> Check if software is in catalog
     |
     +-- FOUND -> Use Phase 3 (Catalog Deploy)
-    |   services deploy <template> --project <id>
+    |   elestio deploy <template> --project <id>
     |
     +-- NOT FOUND -> Use Phase 4 (CI/CD Target)
 
 To check catalog:
-  templates search <software-name>
+  elestio templates search <software-name>
 ```
 
 ---
@@ -86,18 +88,18 @@ To check catalog:
 ### Configure Credentials
 
 ```bash
-node cli.js config --email "user@domain.com" --token "xxx_..."
-node cli.js auth test
+elestio login --email "user@domain.com" --token "xxx_..."
+elestio auth test
 ```
 
 ### Verify Setup
 
 ```bash
 # Should show: [SUCCESS] Authenticated as user@domain.com
-node cli.js auth test
+elestio auth test
 
 # List projects (should show at least one)
-node cli.js projects list
+elestio projects
 ```
 
 ---
@@ -108,34 +110,34 @@ node cli.js projects list
 
 ```bash
 # 1. Find template ID
-node cli.js templates search postgresql
+elestio templates search postgresql
 # -> ID: 11, PostgreSQL
 
 # 2. Deploy (uses defaults: netcup/nbg/MEDIUM-2C-4G)
-node cli.js services deploy postgresql --project 112 --name my-db
+elestio deploy postgresql --project 112 --name my-db
 # -> Waits for deployment, shows credentials when ready
 ```
 
 ### Deploy Redis Cache
 
 ```bash
-node cli.js services deploy redis --project 112
+elestio deploy redis --project 112
 ```
 
 ### Deploy WordPress
 
 ```bash
-node cli.js services deploy wordpress --project 112
+elestio deploy wordpress --project 112
 ```
 
 ### Deploy Custom App from GitHub (Automated -- Recommended)
 
 ```bash
 # 1. Deploy CI/CD target
-node cli.js services deploy cicd --project 112 --name my-cicd
+elestio deploy cicd --project 112 --name my-cicd
 
 # 2. Auto-create pipeline (handles everything: SSH, Dockerfile, build, start)
-node cli.js cicd create-pipeline --mode github --repo owner/repo --target <vmID> --name my-app --auth-id <authID>
+elestio cicd create --auto --target <vmID> --name my-app --repo owner/repo --mode github --auth-id <authID>
 # -> Site is live at https://<name>-u<userID>.vm.elestio.app/
 ```
 
@@ -143,17 +145,17 @@ node cli.js cicd create-pipeline --mode github --repo owner/repo --target <vmID>
 
 ```bash
 # 1. Deploy CI/CD target
-node cli.js services deploy cicd --project 112 --name my-cicd
+elestio deploy cicd --project 112 --name my-cicd
 
 # 2. Add SSH key for agent access
-node cli.js ssh-keys <vmID> add "agent-key" "ssh-ed25519 AAAA..."
+elestio ssh-keys add <vmID> --name "agent-key" --key "ssh-ed25519 AAAA..."
 
 # 3. Generate pipeline config
-node cli.js cicd init-pipeline docker > pipeline.json
+elestio cicd template docker > pipeline.json
 # Edit pipeline.json with correct CI/CD target info...
 
 # 4. Create pipeline
-node cli.js cicd create-pipeline --config pipeline.json
+elestio cicd create pipeline.json
 
 # 5. SSH and configure
 ssh root@<ipv4>
@@ -165,85 +167,88 @@ cd /opt/app/<pipeline-name>
 
 ## Command Reference
 
-### Configuration
+### Authentication & Configuration
 
 ```bash
-config --email X --token Y      # Set credentials
-config --show                   # Show current config
-config --set-default-project X  # Set default project
-auth test                       # Verify authentication
+elestio login --email X --token Y  # Set credentials
+elestio auth test                  # Verify authentication
+elestio whoami                     # Show current user
+elestio config                     # Show current config
+elestio config --set-default-project X  # Set default project
 ```
 
 ### Catalog (No Auth Required)
 
 ```bash
-templates list                  # List all 400+ templates
-templates list --category "Databases & Cache"
-templates search <query>        # Search by name
-templates categories            # List categories
-sizes list                      # All provider/region/size combos
-sizes list --provider netcup    # Filter by provider
+elestio templates                  # List all 400+ templates
+elestio templates search <query>   # Search by name
+elestio templates info <name>      # Template details
+elestio categories                 # List categories
+elestio sizes                      # All provider/region/size combos
+elestio sizes --provider netcup    # Filter by provider
 ```
 
 ### Projects
 
 ```bash
-projects list                   # List all projects
-projects create <name>          # Create project
-projects delete <id> --force    # Delete project
-projects members <id>           # List members
-projects add-member <id> --email X --role admin
+elestio projects                   # List all projects
+elestio projects create <name>     # Create project
+elestio projects delete <id> --force  # Delete project
+elestio projects members <id>      # List members
+elestio projects add-member <id> <email>
+elestio projects remove-member <id> <memberId>
 ```
 
 ### Services
 
 ```bash
-services list                   # List all services
-services list --project 123     # Filter by project
-services get <vmID>             # Service details
-services deploy <template> --project X --name Y
-services deploy cicd --project X  # Deploy CI/CD target
-services delete <vmID> --force
-services move <id> --to-project X
-services wait <vmID>            # Wait for deployment
+elestio services                   # List all services
+elestio services --project 123     # Filter by project
+elestio service <vmID>             # Service details
+elestio deploy <template> --project X --name Y
+elestio deploy cicd --project X    # Deploy CI/CD target
+elestio delete-service <vmID> --force
+elestio move-service <vmID> <targetProjectId>
+elestio wait <vmID>                # Wait for deployment
 ```
 
 ### Power Management
 
 ```bash
-action <vmID> reboot            # Graceful reboot
-action <vmID> reset             # Hard reset
-action <vmID> shutdown          # Graceful shutdown
-action <vmID> poweroff          # Force power off
-action <vmID> poweron           # Power on
-action <vmID> restart-stack     # Restart Docker only (fastest)
-action <vmID> lock              # Enable termination protection
-action <vmID> unlock            # Disable termination protection
-action <vmID> resize LARGE-4C-8G  # Upgrade/downgrade VM size
+elestio reboot <vmID>              # Graceful reboot
+elestio reset <vmID>               # Hard reset
+elestio shutdown <vmID>            # Graceful shutdown
+elestio poweroff <vmID>            # Force power off
+elestio poweron <vmID>             # Power on
+elestio restart-stack <vmID>       # Restart Docker only (fastest)
+elestio lock <vmID>                # Enable termination protection
+elestio unlock <vmID>              # Disable termination protection
+elestio resize <vmID> --size LARGE-4C-8G  # Upgrade/downgrade VM size
 ```
 
 ### Firewall
 
 ```bash
-firewall <vmID> list            # List rules
-firewall <vmID> enable --rules '[{"type":"INPUT","port":"22","protocol":"tcp","targets":["0.0.0.0/0"]}]'
-firewall <vmID> disable
+elestio firewall get <vmID>        # List rules
+elestio firewall enable <vmID> --rules '[{"type":"INPUT","port":"22","protocol":"tcp","targets":["0.0.0.0/0"]}]'
+elestio firewall update <vmID> --rules '[...]'
+elestio firewall disable <vmID>
 ```
 
 ### SSL / Custom Domains
 
 ```bash
-ssl <vmID> list                 # List domains
-ssl <vmID> add myapp.example.com  # Add with auto-SSL
-ssl <vmID> remove myapp.example.com
+elestio ssl list <vmID>            # List domains
+elestio ssl add <vmID> <domain>    # Add with auto-SSL
+elestio ssl remove <vmID> <domain>
 ```
 
 ### SSH Keys
 
 ```bash
-ssh-keys <vmID> list            # List keys
-ssh-keys <vmID> add "name" "ssh-ed25519 AAAA..."
-ssh-keys <vmID> remove "name"
+elestio ssh-keys list <vmID>       # List keys
+elestio ssh-keys add <vmID> --name "name" --key "ssh-ed25519 AAAA..."
+elestio ssh-keys remove <vmID> --name "name"
 ```
 
 **Note:** When adding SSH keys, provide only the key type and key data (e.g., `ssh-ed25519 AAAA...`). Do NOT include the comment/email at the end of the key.
@@ -251,68 +256,68 @@ ssh-keys <vmID> remove "name"
 ### Auto-Updates
 
 ```bash
-updates <vmID> system-enable --day 0 --hour 5 --security-only
-updates <vmID> system-disable
-updates <vmID> system-now       # Run OS update now
-updates <vmID> app-enable --day 0 --hour 3
-updates <vmID> app-disable
-updates <vmID> app-now          # Run app update now
-updates <vmID> change-version --tag "15"  # e.g., PostgreSQL 15
+elestio updates system-enable <vmID> --day 0 --hour 5 --security-only
+elestio updates system-disable <vmID>
+elestio updates system-now <vmID>  # Run OS update now
+elestio updates app-enable <vmID> --day 0 --hour 3
+elestio updates app-disable <vmID>
+elestio updates app-now <vmID>     # Run app update now
+elestio change-version <vmID> <version>  # e.g., PostgreSQL 15
 ```
 
 ### Alerts
 
 ```bash
-alerts <vmID> get               # Get current rules
-alerts <vmID> enable --rules '{...}' --cycle 60  # cycle in seconds (default: 60)
-alerts <vmID> disable
+elestio alerts get <vmID>          # Get current rules
+elestio alerts enable <vmID> --rules '{...}' --cycle 60
+elestio alerts disable <vmID>
 ```
 
 ### Backups
 
 ```bash
 # Local backups (application-level)
-backups <vmID> local-list
-backups <vmID> local-take
-backups <vmID> local-restore /opt/app-backups/backup.zst
-backups <vmID> local-delete /opt/app-backups/backup.zst
+elestio backups local-list <vmID>
+elestio backups local-take <vmID>
+elestio backups local-restore <vmID> /opt/app-backups/backup.zst
+elestio backups local-delete <vmID> /opt/app-backups/backup.zst
 
 # Remote backups (Elestio managed)
-backups <vmID> remote-list
-backups <vmID> remote-take
-backups <vmID> remote-restore <snapshot-name>
-backups <vmID> remote-setup --hour "03:00"
-backups <vmID> remote-disable
+elestio backups remote-list <vmID>
+elestio backups remote-take <vmID>
+elestio backups remote-restore <vmID> <snapshot-name>
+elestio backups auto-enable <vmID>
+elestio backups auto-disable <vmID>
 
 # S3 external backups
-backups <vmID> s3-verify --key X --secret Y --bucket Z --endpoint S
-backups <vmID> s3-enable --key X --secret Y --bucket Z --endpoint S
-backups <vmID> s3-disable
-backups <vmID> s3-take
-backups <vmID> s3-list
-backups <vmID> s3-restore <backup-key>
-backups <vmID> s3-delete <backup-key>
+elestio s3-backup verify <vmID> --key X --secret Y --bucket Z --endpoint S
+elestio s3-backup enable <vmID> --key X --secret Y --bucket Z --endpoint S
+elestio s3-backup disable <vmID>
+elestio s3-backup take <vmID>
+elestio s3-backup list <vmID>
+elestio s3-backup restore <vmID> <backup-key>
+elestio s3-backup delete <vmID> <backup-key>
 ```
 
 ### Snapshots (Provider-level)
 
 ```bash
-snapshots <vmID> list           # List all snapshots
-snapshots <vmID> take           # Create manual snapshot
-snapshots <vmID> restore <id>   # Restore snapshot (0 = most recent)
-snapshots <vmID> delete <id>    # Delete snapshot
-snapshots <vmID> enable-auto    # Enable automatic snapshots
-snapshots <vmID> disable-auto   # Disable automatic snapshots
+elestio snapshots list <vmID>      # List all snapshots
+elestio snapshots take <vmID>      # Create manual snapshot
+elestio snapshots restore <vmID> <id>  # Restore snapshot (0 = most recent)
+elestio snapshots delete <vmID> <id>   # Delete snapshot
+elestio snapshots auto-enable <vmID>   # Enable automatic snapshots
+elestio snapshots auto-disable <vmID>  # Disable automatic snapshots
 ```
 
 ### Access & Credentials
 
 ```bash
-access <vmID> credentials       # App URL + login
-access <vmID> ssh               # SSH terminal URL
-access <vmID> vscode            # VSCode web URL
-access <vmID> file-explorer     # File explorer URL
-access <vmID> logs              # Log viewer URL
+elestio credentials <vmID>         # App URL + login
+elestio ssh <vmID>                 # SSH terminal URL
+elestio ssh <vmID> --direct        # Direct SSH command
+elestio vscode <vmID>              # VSCode web URL
+elestio files <vmID>               # File explorer URL
 ```
 
 ### Volumes
@@ -320,41 +325,52 @@ access <vmID> logs              # Log viewer URL
 **Note:** Volume support depends on the cloud provider. Hetzner supports full volume operations. Some providers like netcup have limited or no volume support.
 
 ```bash
-volumes list --project X        # List all volumes in project
-volumes create <name> --size 10 --project X
-volumes attached <vmID>         # List attached to service
-volumes attach <vmID> --name X --size 10
-volumes resize <vmID> <volumeID> <newSize>   # Resize volume (e.g., 20 for 20GB)
-volumes detach <vmID> <volumeID>             # Detach from service
-volumes delete <vmID> <volumeID>             # Delete volume
-volumes protect <vmID> <volumeID>            # Enable deletion protection
+elestio volumes                    # List all volumes in project
+elestio volumes create --name X --size 10
+elestio volumes service-list <vmID>    # List attached to service
+elestio volumes service-create <vmID> --name X --size 10
+elestio volumes resize <vmID> <volumeID> --size 20
+elestio volumes detach <vmID> <volumeID>
+elestio volumes delete <vmID> <volumeID>
+elestio volumes protect <vmID> <volumeID>
 ```
 
 ### CI/CD Pipelines
 
 ```bash
-cicd services                   # List CI/CD targets
-cicd pipelines <vmID>           # List pipelines
+elestio cicd targets               # List CI/CD targets
+elestio cicd pipelines <vmID>      # List pipelines
+elestio cicd pipeline-info <vmID> <pipelineID>
 
 # Automated pipeline creation (recommended for GitHub/GitLab repos)
-cicd create-pipeline --mode github --repo owner/repo --target <vmID> --name my-app
-cicd create-pipeline --mode github --repo owner/repo --target <vmID> --name my-app --auth-id <id>
+elestio cicd create --auto --target <vmID> --name my-app --repo owner/repo --mode github
+elestio cicd create --auto --target <vmID> --name my-app --repo owner/repo --mode github --auth-id <id>
 # Modes: github, github-fullstack, gitlab, gitlab-fullstack, docker
 # Optional: --branch, --build-cmd, --run-cmd, --install-cmd, --build-dir, --framework, --node-version
 
 # Manual pipeline creation (from JSON template)
-cicd init-pipeline docker       # Docker Compose (custom, no Git)
-cicd init-pipeline github       # GitHub Static SPA (Vite/React)
-cicd init-pipeline github-fullstack  # GitHub Full Stack (Node.js)
-cicd init-pipeline gitlab       # GitLab Static SPA (Vite/React)
-cicd init-pipeline gitlab-fullstack  # GitLab Full Stack (Node.js)
-cicd create-pipeline --config X.json
+elestio cicd template docker       # Docker Compose (custom, no Git)
+elestio cicd template github       # GitHub Static SPA (Vite/React)
+elestio cicd template github-fullstack  # GitHub Full Stack (Node.js)
+elestio cicd template gitlab       # GitLab Static SPA (Vite/React)
+elestio cicd template gitlab-fullstack  # GitLab Full Stack (Node.js)
+elestio cicd create <config.json>
 
 # Pipeline actions
-cicd action <vmID> <pipelineID> restart
-cicd action <vmID> <pipelineID> stop
-cicd action <vmID> <pipelineID> logs
-cicd action <vmID> <pipelineID> delete --force
+elestio cicd pipeline-restart <vmID> <pipelineID>
+elestio cicd pipeline-stop <vmID> <pipelineID>
+elestio cicd pipeline-logs <vmID> <pipelineID>
+elestio cicd pipeline-history <vmID> <pipelineID>
+elestio cicd pipeline-delete <vmID> <pipelineID> --force
+
+# Pipeline domains
+elestio cicd domains <vmID> <pipelineID>
+elestio cicd domain-add <vmID> --pipeline <id> --domain myapp.example.com
+elestio cicd domain-remove <vmID> --pipeline <id> --domain myapp.example.com
+
+# Docker registries
+elestio cicd registries
+elestio cicd registry-add --name X --username U --password P --url URL
 ```
 
 **Auto-create pipeline flow:** The CLI automatically discovers the Git account, finds the repo, creates the pipeline via API, adds an SSH key, writes a correct multi-stage Dockerfile (Node build + Nginx serve), builds the Docker image, starts the container, and verifies HTTP 200. The entire process takes ~2 minutes after CI/CD target is deployed.
@@ -362,8 +378,8 @@ cicd action <vmID> <pipelineID> delete --force
 ### Billing
 
 ```bash
-billing summary                 # Total costs
-billing project <id>            # Per-service breakdown
+elestio billing                    # Total costs
+elestio billing project <id>       # Per-service breakdown
 ```
 
 ---
@@ -386,7 +402,7 @@ billing project <id>            # Per-service breakdown
 - AWS: us-east-1, eu-west-1, ap-southeast-1, etc.
 - Azure: germanywestcentral, eastus, westeurope, etc.
 
-Use `sizes list --provider <provider>` to get exact available regions if needed.
+Use `elestio sizes --provider <provider>` to get exact available regions if needed.
 
 **3. Service Plan (Size)** -- Ask using `AskUserQuestion`, propose available sizes with pricing:
 - SMALL-1C-2G -- 1 core, 2GB RAM (~$7/mo)
@@ -394,7 +410,7 @@ Use `sizes list --provider <provider>` to get exact available regions if needed.
 - LARGE-4C-8G -- 4 cores, 8GB RAM (~$28/mo)
 - XL-8C-16G -- 8 cores, 16GB RAM (~$55/mo)
 
-Use `sizes list --provider <provider>` to get exact sizes/pricing for the chosen provider.
+Use `elestio sizes --provider <provider>` to get exact sizes/pricing for the chosen provider.
 
 **4. Name of Service** -- Do NOT use `AskUserQuestion`. Simply ask the user in plain text to provide a name, suggesting a default based on the service type (e.g., "prod-postgres", "staging-redis"). Wait for user text input.
 
@@ -422,15 +438,15 @@ Agent: Deploys with all confirmed parameters
 ## Golden Rules
 
 1. **Always authenticate first** -- Every session starts with valid JWT
-2. **vmID != serverID** -- Most endpoints use `vmID`, backup/notes use `serverID` (both from `services list`)
+2. **vmID != serverID** -- Most endpoints use `vmID`, backup/notes use `serverID` (both from `elestio services`)
 3. **Check deployment status** -- After deploy, wait for `deploymentStatus = "Deployed"` before accessing
 4. **Never delete without confirmation** -- Always require `--force` flag
 5. **Use catalog when possible** -- Phase 3 (catalog) is simpler than Phase 4 (CI/CD)
-6. **Validate combos** -- Provider + datacenter + serverType must match `sizes list`
+6. **Validate combos** -- Provider + datacenter + serverType must match `elestio sizes`
 7. **Account must be approved** -- New accounts need credit card + approval before deploying
 8. **ALWAYS follow the Interactive Deployment Procedure above** -- Never skip parameter questions
-9. **Set default project** -- Use `config --set-default-project <id>` to avoid passing `--project` every time
-10. **Service belongs to project** -- When using `services get`, ensure the vmID belongs to the current default project or specify `--project`
+9. **Set default project** -- Use `elestio config --set-default-project <id>` to avoid passing `--project` every time
+10. **Service belongs to project** -- When using `elestio service <vmID>`, ensure the vmID belongs to the current default project or specify `--project`
 
 ---
 
@@ -472,14 +488,14 @@ Not all cloud providers support all features. Use `--provider` to switch.
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| "Not configured" | Missing credentials | `config --email X --token Y` |
+| "Not configured" | Missing credentials | `elestio login --email X --token Y` |
 | "Authentication failed" | Wrong credentials or expired token | Re-create API token in dashboard |
 | "Account not approved" | New account without approval | Wait for approval or contact support@elest.io |
-| "Template not found" | Wrong name/ID | Use `templates search <name>` |
-| "Invalid serverType" | Provider/region/size combo doesn't exist | Check `sizes list --provider X` |
-| "Service not found" | Wrong vmID or project | Check `services list --project X` |
+| "Template not found" | Wrong name/ID | Use `elestio templates search <name>` |
+| "Invalid serverType" | Provider/region/size combo doesn't exist | Check `elestio sizes --provider X` |
+| "Service not found" | Wrong vmID or project | Check `elestio services --project X` |
 | "Deployment timeout" | Taking too long | Check dashboard, contact support if > 10 min |
-| "Project not found" | Wrong projectId | Check `projects list` |
+| "Project not found" | Wrong projectId | Check `elestio projects` |
 
 ---
 
@@ -487,31 +503,31 @@ Not all cloud providers support all features. Use `--provider` to switch.
 
 ### After Deploying a Service
 
-1. **Get credentials:** `access <vmID> credentials`
+1. **Get credentials:** `elestio credentials <vmID>`
 2. **Verify running:** Open the URL, confirm service works
-3. **Enable backups:** `backups <vmID> remote-setup --hour "03:00"`
-4. **Add custom domain:** `ssl <vmID> add myapp.example.com`
-5. **Configure firewall:** `firewall <vmID> enable --rules [...]`
-6. **Enable auto-updates:** `updates <vmID> system-enable --security-only`
+3. **Enable backups:** `elestio backups auto-enable <vmID>`
+4. **Add custom domain:** `elestio ssl add <vmID> myapp.example.com`
+5. **Configure firewall:** `elestio firewall enable <vmID> --rules [...]`
+6. **Enable auto-updates:** `elestio updates system-enable <vmID> --security-only`
 
 ### After Creating CI/CD Target
 
 **Automated (recommended):**
-1. **Auto-create pipeline:** `cicd create-pipeline --mode github --repo owner/repo --target <vmID> --name my-app --auth-id <id>`
+1. **Auto-create pipeline:** `elestio cicd create --auto --target <vmID> --name my-app --repo owner/repo --mode github --auth-id <id>`
 2. Site is live -- CLI handles SSH, Dockerfile, build, start automatically
 
 **Manual:**
-1. **Add SSH key:** `ssh-keys <vmID> add "name" "key"`
-2. **Create pipeline:** `cicd create-pipeline --config pipeline.json`
+1. **Add SSH key:** `elestio ssh-keys add <vmID> --name "name" --key "key"`
+2. **Create pipeline:** `elestio cicd create pipeline.json`
 3. **SSH and configure:** `ssh root@<ipv4>`
-4. **Add domain:** `cicd action <vmID> <pipelineID> add-domain myapp.example.com`
+4. **Add domain:** `elestio cicd domain-add <vmID> --pipeline <pipelineID> --domain myapp.example.com`
 
 ### After an Error
 
-1. **Re-authenticate:** `auth test`
-2. **Check status:** `services get <vmID>`
-3. **View logs:** `access <vmID> logs`
-4. **Restart stack:** `action <vmID> restart-stack`
+1. **Re-authenticate:** `elestio auth test`
+2. **Check status:** `elestio service <vmID>`
+3. **View logs:** `elestio cicd pipeline-logs <vmID> <pipelineID>`
+4. **Restart stack:** `elestio restart-stack <vmID>`
 
 ---
 
@@ -521,13 +537,13 @@ Not all cloud providers support all features. Use `--provider` to switch.
 
 ```bash
 # 1. Verify current config
-node cli.js config --show
+elestio config
 
 # 2. Re-configure with fresh token from dashboard
-node cli.js config --email "..." --token "..."
+elestio login --email "..." --token "..."
 
 # 3. Test
-node cli.js auth test
+elestio auth test
 ```
 
 ### Service stuck in "Deploying"
@@ -539,7 +555,7 @@ node cli.js auth test
 ### "Service not found" but it exists
 
 - Make sure you're using `vmID`, not `serverID`
-- Check the correct project: `services list --project X`
+- Check the correct project: `elestio services --project X`
 - vmID looks like: `12345678` (numeric)
 
 ### Pipeline not working
@@ -555,12 +571,12 @@ node cli.js auth test
 
 | Term | Find it in | Use in |
 |------|------------|--------|
-| `vmID` | `services list` -> `.vmID` | Most endpoints (actions, firewall, ssl, etc.) |
-| `serverID` | `services list` -> `.id` | Backup endpoints, notes |
-| `projectID` | `projects list` -> `.projectID` | Almost everything |
-| `templateID` | `templates list` -> `.id` | `services deploy` |
-| `pipelineID` | `cicd pipelines` -> `.pipelineID` | CI/CD actions |
-| `volumeID` | `volumes list` -> `.id` | Volume actions |
+| `vmID` | `elestio services` -> `.vmID` | Most endpoints (actions, firewall, ssl, etc.) |
+| `serverID` | `elestio services` -> `.id` | Backup endpoints, notes |
+| `projectID` | `elestio projects` -> `.projectID` | Almost everything |
+| `templateID` | `elestio templates` -> `.id` | `elestio deploy` |
+| `pipelineID` | `elestio cicd pipelines` -> `.pipelineID` | CI/CD actions |
+| `volumeID` | `elestio volumes` -> `.id` | Volume actions |
 
 **Common mistake:** Using `serverID` where `vmID` is expected (or vice versa). They are different numbers for the same service.
 
@@ -599,3 +615,4 @@ Every Elestio service runs on a dedicated VM:
 - **API Docs:** https://api-doc.elest.io
 - **Support:** support@elest.io
 - **Templates:** 400+ at https://elest.io/open-source
+- **CLI:** `npm install -g elestio`
