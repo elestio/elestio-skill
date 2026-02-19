@@ -412,7 +412,7 @@ Agent: [AskUserQuestion] Which service plan? (SMALL ~$7/mo, MEDIUM ~$14/mo, LARG
 User: "MEDIUM"
 Agent: "What name do you want for this service? Suggestion: prod-postgresql"
 User: "demo-postgres"
-Agent: [AskUserQuestion] Admin email? (Suggested: david@elest.io)
+Agent: [AskUserQuestion] Admin email? (Suggested: user@company.com)
 User: confirms
 Agent: Deploys with all confirmed parameters
 ```
