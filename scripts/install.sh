@@ -2,6 +2,7 @@
 set -e
 
 REPO="https://github.com/elestio/elestio-skill"
+SKILL_NAME="elestio"
 
 # ANSI colors
 BOLD=$'\033[1m'
@@ -31,28 +32,24 @@ EOF
   printf "${NC}"
 }
 
-print_success() {
-  printf "\n${GREEN}✓ Skills installed successfully!${NC}\n"
-}
-
-install_skills() {
+install_skill() {
   local skills_dir="$1"
   local name="$2"
   local temp_dir="$3"
+  local dest="$skills_dir/$SKILL_NAME"
 
   mkdir -p "$skills_dir"
-  rm -rf "$skills_dir"/elestio-* 2>/dev/null || true
+  rm -rf "$dest" 2>/dev/null || true
+  mkdir -p "$dest"
 
-  local count=0
-  for d in "$temp_dir"/plugins/elestio/skills/*/; do
-    skill_name=$(basename "$d")
-    [[ "$skill_name" == _* ]] && continue
-    [ -f "$d/SKILL.md" ] || continue
-    cp -R "$d" "$skills_dir/elestio-$skill_name"
-    count=$((count + 1))
-  done
+  # Copy skill files (exclude repo-only files)
+  cp "$temp_dir/SKILL.md" "$dest/"
+  cp "$temp_dir/cli.js" "$dest/"
+  cp "$temp_dir/package.json" "$dest/"
+  cp -R "$temp_dir/lib" "$dest/"
+  cp -R "$temp_dir/templates" "$dest/"
 
-  completed "$name: ${GREEN}$count${NC} skill(s) → ${CYAN}$skills_dir${NC}"
+  completed "$name: skill installed ${CYAN}$dest${NC}"
 }
 
 # Targets: [dir, name]
@@ -74,10 +71,10 @@ done
 if [ ${#FOUND[@]} -eq 0 ]; then
   error "No supported tools found."
   printf "\nSupported:\n"
-  printf "  • Claude Code (~/.claude)\n"
-  printf "  • OpenAI Codex (~/.codex)\n"
-  printf "  • OpenCode (~/.config/opencode)\n"
-  printf "  • Cursor (~/.cursor)\n"
+  printf "  - Claude Code (~/.claude)\n"
+  printf "  - OpenAI Codex (~/.codex)\n"
+  printf "  - OpenCode (~/.config/opencode)\n"
+  printf "  - Cursor (~/.cursor)\n"
   exit 1
 fi
 
@@ -91,7 +88,7 @@ printf "\n"
 for target in "${FOUND[@]}"; do
   dir="${target%%|*}"
   name="${target##*|}"
-  install_skills "$dir" "$name" "$temp_dir"
+  install_skill "$dir" "$name" "$temp_dir"
 done
 
 # Local installs (skip if CWD is $HOME)
@@ -106,15 +103,15 @@ if [ "$(pwd)" != "$HOME" ]; then
     dir="${target%%|*}"
     name="${target##*|}"
     parent="${dir%/*}"
-    [ -d "./$parent" ] && install_skills "./$dir" "$name" "$temp_dir"
+    [ -d "./$parent" ] && install_skill "./$dir" "$name" "$temp_dir"
   done
 fi
 
 rm -rf "$temp_dir"
 
-print_success
+printf "\n${GREEN}✓ Elestio skill installed successfully!${NC}\n"
 printf "\n"
-warn "Restart your tool(s) to load skills."
+warn "Restart your tool(s) to load the skill."
 printf "\n"
 info "Re-run anytime to update."
 printf "\n"

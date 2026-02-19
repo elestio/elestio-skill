@@ -1,6 +1,6 @@
-# Elestio Skills
+# Elestio Skill
 
-Agent skills for [Elestio](https://elest.io), following the [Agent Skills](https://agentskills.io) open format.
+Agent skill for [Elestio](https://elest.io), following the [Agent Skills](https://agentskills.io) open format.
 
 Deploy and manage services on the Elestio DevOps platform. 400+ open-source templates, 9 cloud providers, 100+ regions.
 
@@ -21,52 +21,77 @@ Supports Claude Code, OpenAI Codex, OpenCode, and Cursor. Re-run to update.
 ### Manual Installation
 
 <details>
-<summary>Local skills copy (any agent)</summary>
+<summary>Copy to your agent's skills directory</summary>
 
-Copy `plugins/elestio/skills/` to your agent's skills directory:
-- Claude: `~/.claude/skills/`
-- Codex: `~/.codex/skills/`
-- OpenCode: `~/.config/opencode/skill/`
-- Cursor: `~/.cursor/skills/`
+Copy the skill files to your agent's skills directory:
+
+```bash
+# Claude Code
+mkdir -p ~/.claude/skills/elestio
+cp SKILL.md cli.js package.json ~/.claude/skills/elestio/
+cp -R lib templates ~/.claude/skills/elestio/
+
+# Codex
+mkdir -p ~/.codex/skills/elestio
+cp SKILL.md cli.js package.json ~/.codex/skills/elestio/
+cp -R lib templates ~/.codex/skills/elestio/
+```
+
 </details>
 
-## Available Skills
+## Quick Start
 
-| Skill | Description |
-|-------|-------------|
-| [elestio](plugins/elestio/skills/elestio/SKILL.md) | Deploy and manage services, projects, CI/CD, backups, domains, firewall, volumes, and billing on Elestio |
+```bash
+# Configure credentials
+node cli.js config --email "you@example.com" --token "your_api_token"
+
+# Verify authentication
+node cli.js auth test
+
+# Search the catalog
+node cli.js templates search postgresql
+
+# Deploy PostgreSQL
+node cli.js services deploy postgresql --project 112 --name my-db
+
+# Deploy from GitHub (fully automated)
+node cli.js services deploy cicd --project 112 --name my-cicd
+node cli.js cicd create-pipeline --mode github --repo owner/repo --target <vmID> --name my-app
+```
 
 ## Repository Structure
 
 ```
 elestio-skill/
-├── plugins/elestio/
-│   └── skills/
-│       └── elestio/
-│           └── SKILL.md           # Skill instructions
+├── SKILL.md              # Skill instructions (read by agents)
+├── cli.js                # CLI entry point
+├── lib/                  # CLI modules
+│   ├── api.js            # HTTP client, JWT management
+│   ├── auth.js           # Config, auth test
+│   ├── utils.js          # Arg parser, formatters
+│   ├── templates.js      # Template catalog, server sizes
+│   ├── projects.js       # Project CRUD
+│   ├── services.js       # Deploy, list, delete, move
+│   ├── actions.js        # Power, firewall, SSL, SSH keys, resize
+│   ├── access.js         # Credentials, SSH, VSCode URLs
+│   ├── backups.js        # Local/remote/S3 backups, snapshots
+│   ├── volumes.js        # Block storage CRUD
+│   ├── cicd.js           # CI/CD pipelines, auto-create
+│   └── billings.js       # Cost tracking
+├── templates/
+│   └── pipeline-docker.json
+├── package.json
 ├── scripts/
-│   └── install.sh                 # Universal installer
+│   └── install.sh        # Universal installer
 └── README.md
 ```
 
-## Creating New Skills
+Zero npm dependencies. Built on Node.js built-ins (`fs`, `path`, `url`, `child_process`, `dns/promises`, native `fetch`).
 
-Create `plugins/elestio/skills/{name}/SKILL.md`:
+## Requirements
 
-```yaml
----
-name: my-skill
-description: What this skill does and when to use it
----
-
-# Instructions
-
-Step-by-step guidance for the agent.
-
-## Examples
-
-Concrete examples showing expected input/output.
-```
+- Node.js >= 18
+- An Elestio account with API token ([create one here](https://dash.elest.io/account/security))
 
 ## References
 

@@ -1,0 +1,65 @@
+{
+  "_comment": "Template for creating a Docker Compose pipeline on Elestio CI/CD Target",
+  "_instructions": [
+    "1. Replace all REPLACE_WITH_* values with actual CI/CD target info from 'services get <vmID>'",
+    "2. Adjust ports.targetPort to match your app's internal port",
+    "3. Adjust exposedPorts.containerPort to match your Docker container's port",
+    "4. Update gitData.projectName to your desired pipeline name",
+    "5. Run: node cli.js cicd create-pipeline --config pipeline.json"
+  ],
+  "projectID": "REPLACE_WITH_PROJECT_ID",
+  "CICDMode": "DOCKER",
+  "ports": [
+    {
+      "protocol": "HTTPS",
+      "targetProtocol": "HTTP",
+      "listeningPort": "443",
+      "targetPort": "3000",
+      "public": true,
+      "path": "/",
+      "isAuth": false,
+      "login": "",
+      "password": ""
+    }
+  ],
+  "variables": "",
+  "cluster": {
+    "isCluster": false,
+    "createNew": false,
+    "target": {
+      "displayName": "REPLACE_WITH_CICD_DISPLAY_NAME",
+      "id": "REPLACE_WITH_CICD_SERVER_ID",
+      "serverName": "REPLACE_WITH_CICD_CNAME",
+      "vmID": "REPLACE_WITH_CICD_VM_ID"
+    }
+  },
+  "configData": {
+    "buildDir": "/",
+    "rootDir": "/",
+    "runTime": "",
+    "version": "",
+    "framework": "",
+    "buildCmd": "",
+    "runCmd": "",
+    "installCmd": ""
+  },
+  "gitData": {
+    "projectName": "my-app",
+    "branch": "",
+    "repoUrl": "",
+    "cloneUrl": "",
+    "repoID": 0,
+    "repo": ""
+  },
+  "exposedPorts": [
+    {
+      "protocol": "HTTP",
+      "hostPort": "3000",
+      "containerPort": "80",
+      "interface": "172.17.0.1"
+    }
+  ],
+  "gitVolumeConfig": [],
+  "isNeedToCreateRepo": false,
+  "gitUserFormData": {}
+}
