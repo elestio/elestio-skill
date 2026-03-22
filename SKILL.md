@@ -152,7 +152,7 @@ elestio ssh-keys add <vmID> --name "agent-key" --key "ssh-ed25519 AAAA..."
 
 # 3. Generate pipeline config
 elestio cicd template docker > pipeline.json
-# Edit pipeline.json with correct CI/CD target info...
+# Edit pipeline.json with correct CI/CD target info (see JSON reference below)
 
 # 4. Create pipeline
 elestio cicd create pipeline.json
@@ -162,6 +162,90 @@ ssh root@<ipv4>
 cd /opt/app/<pipeline-name>
 # Edit docker-compose.yml, add code, docker-compose up -d
 ```
+
+#### Pipeline JSON Reference (Docker mode -- `createCiCdExistServer` payload)
+
+**CRITICAL:** The pipeline.json must match the API format exactly. Common mistakes are documented below.
+
+```json
+{
+  "CICDMode": "DockerCompose",
+  "pipelineName": "my-pipeline",
+  "configData": {
+    "runTime": "Docker Compose",
+    "framework": "NoFramework",
+    "version": "20",
+    "buildCommand": "",
+    "runCommand": "",
+    "installCommand": "",
+    "buildDir": ""
+  },
+  "imageData": {
+    "isPrivate": false,
+    "compose": "version: '3.3'\nservices:\n  app:\n    image: nginx:alpine\n    restart: always\n    ports:\n      - 172.17.0.1:3000:80",
+    "dockerExample": "",
+    "repoName": "CustomDocker"
+  },
+  "gitData": {},
+  "authID": null,
+  "isPublicGitRepo": false,
+  "gitVolumeConfig": [{}],
+  "cluster": {
+    "target": {
+      "vmID": 848528,
+      "vmProvider": "netcup",
+      "vmRegion": "nbg",
+      "levelName": "MEDIUM-2C-4G",
+      "projectID": 74333
+    }
+  },
+  "ports": [
+    {
+      "protocol": "HTTPS",
+      "targetPort": 443,
+      "publishedPort": "3000",
+      "isDefault": "yes",
+      "loginTitle": ""
+    }
+  ],
+  "lifeCycleCommand": {
+    "preInstallCommand": "", "postInstallCommand": "",
+    "preBackupCommand": "", "postBackupCommand": "",
+    "preRestoreCommand": "", "postRestoreCommand": "",
+    "preUpdateCommand": "", "postUpdateCommand": "",
+    "preDeployCommand": "", "postDeployCommand": ""
+  },
+  "monoRepoWorkSpaces": [""],
+  "copyCommandConfig": [],
+  "gitUserFormData": {
+    "selectedUser": "", "searchGitUser": "",
+    "gitOrgsFilteredList": { "GITHUB": [], "GITLAB": [] },
+    "gitOrgsList": [], "selectedRepo": {},
+    "thirdPartyRepoInput": "", "gitScopesUsers": [],
+    "thirdPartyRepoScopeName": "",
+    "getGitScopeUser": { "GITHUB": [], "GITLAB": [] },
+    "thirdPartyRepoName": "", "thirdPartyRepoPrivate": false,
+    "loadSearch": false
+  }
+}
+```
+
+**Common payload mistakes to avoid:**
+
+| Field | WRONG | CORRECT |
+|-------|-------|---------|
+| `CICDMode` | `"DOCKER"` | `"DockerCompose"` |
+| `configData.runTime` | `runtime` (lowercase t) | `runTime` (capital T) |
+| `configData.framework` | `""` | `"NoFramework"` |
+| `configData.version` | `""` | `"20"` |
+| `imageData` | `{ imageName, imageTag, registryUrl }` | `{ isPrivate, compose, dockerExample, repoName }` |
+| `gitData` (docker mode) | `{ projectName, branch, ... }` | `{}` (empty object) |
+| `authID` (docker mode) | `"0"` | `null` |
+| `isPublicGitRepo` | `"false"` (string) | `false` (boolean) |
+| `gitVolumeConfig` | `[]` | `[{}]` |
+| `ports[].loginTitle` | (missing) | `""` (empty string, required) |
+| `nonRepoWorkSpaces` | present | remove — use `monoRepoWorkSpaces` instead |
+| `cluster.target` | only `vmID` | must include `vmProvider`, `vmRegion`, `levelName`, `projectID` |
 
 ---
 
