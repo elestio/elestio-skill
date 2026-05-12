@@ -489,10 +489,10 @@ elestio billing project <id>       # Per-service breakdown
 Use `elestio sizes --provider <provider>` to get exact available regions if needed.
 
 **3. Service Plan (Size)** -- Ask using `AskUserQuestion`, propose available sizes with pricing:
-- SMALL-1C-2G -- 1 core, 2GB RAM (~$7/mo)
-- MEDIUM-2C-4G -- 2 cores, 4GB RAM (~$14/mo)
-- LARGE-4C-8G -- 4 cores, 8GB RAM (~$28/mo)
-- XL-8C-16G -- 8 cores, 16GB RAM (~$55/mo)
+- SMALL-1C-1G -- 1 core, 1GB RAM (~$11/mo, Linode)
+- MEDIUM-2C-4G -- 2 cores, 4GB RAM (~$16/mo, Netcup DE)
+- LARGE-4C-8G -- 4 cores, 8GB RAM (~$30/mo, Netcup DE)
+- XL-8C-16G -- 8 cores, 16GB RAM (~$55/mo, Netcup DE)
 
 Use `elestio sizes --provider <provider>` to get exact sizes/pricing for the chosen provider.
 
@@ -508,7 +508,7 @@ Agent: [AskUserQuestion] Which cloud provider? (Netcup recommended, Hetzner, AWS
 User: "Netcup"
 Agent: [AskUserQuestion] Which region? (nbg Europe-Germany, mns North America-US)
 User: "nbg"
-Agent: [AskUserQuestion] Which service plan? (SMALL ~$7/mo, MEDIUM ~$14/mo, LARGE ~$28/mo, XL ~$55/mo)
+Agent: [AskUserQuestion] Which service plan? (SMALL ~$11/mo, MEDIUM ~$16/mo, LARGE ~$30/mo, XL ~$55/mo)
 User: "MEDIUM"
 Agent: "What name do you want for this service? Suggestion: prod-postgresql"
 User: "demo-postgres"
