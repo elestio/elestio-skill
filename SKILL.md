@@ -217,6 +217,7 @@ cd /opt/app/<pipeline-name>
   },
   "monoRepoWorkSpaces": [""],
   "copyCommandConfig": [],
+  "variables": "",
   "gitUserFormData": {
     "selectedUser": "", "searchGitUser": "",
     "gitOrgsFilteredList": { "GITHUB": [], "GITLAB": [] },
@@ -246,6 +247,7 @@ cd /opt/app/<pipeline-name>
 | `ports[].loginTitle` | (missing) | `""` (empty string, required) |
 | `nonRepoWorkSpaces` | present | remove — use `monoRepoWorkSpaces` instead |
 | `cluster.target` | only `vmID` | must include `vmProvider`, `vmRegion`, `levelName`, `projectID` |
+| `variables` | omitted or `[]` (array) | `""` (empty string; backend runs variables.trim()) |
 
 ---
 
@@ -648,6 +650,13 @@ elestio auth test
 2. Check logs: `cd /opt/app/<pipeline-name> && docker-compose logs`
 3. Verify docker-compose.yml syntax
 4. Check port mapping: `172.17.0.1:3000` (internal network)
+
+### "variables.trim is not a function" (500 Pipeline.CreateFailed)
+
+The `variables` field in the pipeline payload must be a **string**, never an array or omitted. The backend runs `variables.trim()` on it, so any other type throws before your build/run/framework settings are even read (it fails even with minimal parameters).
+
+- Correct: `"variables": ""` (no env vars) or `"variables": "KEY=value\nKEY2=value2"`.
+- Wrong: `"variables": []` or leaving the field out entirely.
 
 ---
 
