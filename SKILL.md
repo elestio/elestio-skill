@@ -550,6 +550,7 @@ elestio clusters failover <clusterID> on|off          # AUTOMATIC failover switc
 elestio clusters resync <clusterID> --force           # ERASES replica data
 elestio clusters lock <clusterID>                     # Termination protection
 elestio clusters unlock <clusterID>
+elestio clusters delete <clusterID> --force           # Deletes ALL nodes (not delete-service)
 ```
 
 **Constraints (the CLI enforces these before calling the API):**
