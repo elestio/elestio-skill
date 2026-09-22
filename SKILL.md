@@ -92,7 +92,7 @@ runs. This is the most frequently reported failure.
 
 ```bash
 # RIGHT
-elestio cicd deploy-template n8n --target <vmID> --owner <git-user>
+elestio cicd deploy-template n8n --target <vmID>
 
 # WRONG -- produces an empty pipeline
 elestio cicd create --auto --target <vmID> --name n8n --repo elestio-examples/n8n
@@ -200,28 +200,30 @@ elestio cicd templates n8n
 
 # 3. ALWAYS dry-run first: it prints the ports, env vars and lifecycle hooks
 #    that will be applied, and creates nothing
-elestio cicd deploy-template n8n --target <vmID> --no-git --dry-run
+elestio cicd deploy-template n8n --target <vmID> --dry-run
 
-# 4a. Preferred: generates the template repo into the user's Git account.
-#     Requires a GitHub/GitLab account connected in the dashboard.
-elestio cicd deploy-template n8n --target <vmID> --owner <git-user>
-
-# 4b. No Git account available:
-elestio cicd deploy-template n8n --target <vmID> --no-git
+# 4. Deploy
+elestio cicd deploy-template n8n --target <vmID>
 ```
 
 On success the CLI prints the software's URL, login and generated password.
 
-**Choosing between the two routes:**
+**Two routes:**
 
-| | `--owner <git-user>` | `--no-git` |
+| | compose (default) | git (`--owner <git-user>`) |
 |---|---|---|
-| Needs a connected Git account | Yes | No |
-| Lifecycle scripts (preInstall/postInstall) | Run | **Skipped** |
-| User can edit the code afterwards | Yes | No |
+| Needs a connected Git account | No | Yes |
+| Lifecycle scripts (preInstall/postInstall) | **Skipped** | Run |
+| User can edit the code afterwards | No | Yes |
 
-If the dry-run shows a `Lifecycle:` line, the software needs those scripts.
-Use the Git route, or warn the user that it may not start.
+**The git route is currently unavailable**: it needs
+`POST /api/cicd/createRepoByTemplate`, which the Elestio API returns 404 for
+(the controller exists but is not registered in the backend route whitelist).
+Use the compose route until that is fixed.
+
+If the dry-run shows a `Lifecycle:` line, those scripts will be skipped. Tell
+the user the software may not start, and do not claim success without
+verifying with `elestio cicd pipeline-logs`.
 
 ### Deploy Custom App from GitHub (user's own code)
 
@@ -556,9 +558,9 @@ the VM count and cost.
 ```bash
 # CATALOG SOFTWARE -> always use deploy-template (reads the template elestio.yml)
 elestio cicd templates [query]     # Catalog software deployable as a pipeline
-elestio cicd deploy-template <software> --target <vmID> --owner <git-user>
-elestio cicd deploy-template <software> --target <vmID> --no-git
-elestio cicd deploy-template <software> --target <vmID> --no-git --dry-run
+elestio cicd deploy-template <software> --target <vmID>
+elestio cicd deploy-template <software> --target <vmID> --dry-run
+elestio cicd deploy-template <software> --target <vmID> --owner <git-user>  # git route (currently 404)
 # Options: --name, --branch, --private, --non-org, --auth-id, --git-type,
 #          --repo-name, --build-cmd, --run-cmd, --install-cmd, --build-dir
 
@@ -742,7 +744,7 @@ Not all cloud providers support all features. Use `--provider` to switch.
 **Catalog software (n8n, Rybbit, Plausible...) -- use this:**
 1. **Check it is available:** `elestio cicd templates <software>`
 2. **Preview:** `elestio cicd deploy-template <software> --target <vmID> --no-git --dry-run`
-3. **Deploy:** `elestio cicd deploy-template <software> --target <vmID> --owner <git-user>`
+3. **Deploy:** `elestio cicd deploy-template <software> --target <vmID>`
 4. **Report the printed URL, login and password to the user**
 5. **Add a domain:** `elestio cicd domain-add <vmID> --pipeline <pipelineID> --domain myapp.example.com`
 
@@ -804,20 +806,22 @@ elestio cicd pipeline-info <vmID> <pipelineID>
 
 # Fix: delete it and redeploy through deploy-template
 elestio cicd pipeline-delete <vmID> <pipelineID> --force
-elestio cicd deploy-template <software> --target <vmID> --owner <git-user>
+elestio cicd deploy-template <software> --target <vmID>
 ```
 
 ### Software starts then exits immediately
 
-The template declares `preInstall`/`postInstall` scripts and was deployed with
-`--no-git`, which has no repo checkout to run them from.
+The template declares `preInstall`/`postInstall` scripts, and the compose route
+has no repo checkout to run them from.
 
 ```bash
 # See which hooks the template needs
-elestio cicd deploy-template <software> --target <vmID> --no-git --dry-run
-# If a "Lifecycle:" line appears, redeploy through the Git route
-elestio cicd deploy-template <software> --target <vmID> --owner <git-user>
+elestio cicd deploy-template <software> --target <vmID> --dry-run
 ```
+
+If a "Lifecycle:" line appears, the software needs those scripts. The git route
+runs them but is currently unavailable (API returns 404 for
+createRepoByTemplate). Report this to the user rather than retrying.
 
 ### "No elestio.yml found at ..."
 
