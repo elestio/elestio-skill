@@ -1,18 +1,18 @@
 ---
 name: elestio
-description: Deploy and manage services on the Elestio DevOps platform. Use when the user wants to deploy apps, databases, or infrastructure on Elestio, manage projects, services, CI/CD pipelines, backups, domains, firewall, volumes, or billing. Covers 400+ open-source templates across 9 cloud providers.
-compatibility: Requires Node.js >= 18, the official Elestio CLI (npm install -g elestio), and an Elestio account with API token
+description: Deploy and manage services on the Elestio DevOps platform. Use when the user wants to deploy apps, databases, or infrastructure on Elestio, manage projects, services, clusters, CI/CD pipelines, backups, domains, firewall, volumes, or billing. Covers 400+ open-source templates across 9 cloud providers, database clustering, and deploying catalog software as CI/CD pipelines.
+compatibility: Requires Node.js >= 18, the official Elestio CLI >= 1.1.0 (npm install -g elestio), and an Elestio account with API token
 metadata:
   author: getateam
-  version: "2.0"
+  version: "2.1"
 ---
 
 # Elestio Skill
 
-**Version:** 2.0
+**Version:** 2.1
 **Purpose:** Deploy and manage services on Elestio DevOps platform
 **Status:** Ready to use
-**Last Updated:** 2026-02-19
+**Last Updated:** 2026-09-22
 
 Elestio is a fully managed DevOps platform. Dedicated VMs (not shared Kubernetes). 400+ open-source templates, 9 cloud providers, 100+ regions. Handles deployment, security, updates, backups, monitoring, support.
 
@@ -48,29 +48,60 @@ Use this skill when:
 
 ## Decision Tree: What Should I Deploy?
 
-```
-Does user want to deploy their own custom code?
-+-- YES (from GitHub/GitLab) -> Automated CI/CD deployment
-|   1. elestio deploy cicd --project <id>
-|   2. elestio cicd create --auto --target <vmID> --name my-app --repo owner/repo --mode github
-|   (CLI auto-handles: SSH key, repo discovery, Dockerfile fix, build, start)
-|
-+-- YES (custom Docker) -> Manual CI/CD
-|   1. elestio deploy cicd --project <id>
-|   2. elestio ssh-keys add <vmID> --name "name" --key "key"
-|   3. elestio cicd create <pipeline.json>
-|   4. SSH in and configure
-|
-+-- NO -> Check if software is in catalog
-    |
-    +-- FOUND -> Use Phase 3 (Catalog Deploy)
-    |   elestio deploy <template> --project <id>
-    |
-    +-- NOT FOUND -> Use Phase 4 (CI/CD Target)
+There are THREE deployment shapes, not two. Choosing wrong is the single most
+common cause of a failed deployment.
 
-To check catalog:
-  elestio templates search <software-name>
 ```
+Is the software in the Elestio catalog?  (elestio templates search <name>)
+|
++-- YES
+|   |
+|   +-- Does the user want a managed, isolated VM?  (production databases,
+|   |   anything needing backups / monitoring / support)
+|   |       -> MANAGED SERVICE
+|   |          elestio deploy <template> --project <id>
+|   |
+|   +-- Does the user want replication / high availability?
+|   |       -> CLUSTER   (19 templates only: elestio clusters templates)
+|   |          elestio deploy <template> --cluster --nodes <n> --project <id>
+|   |
+|   +-- Does the user want it cheap, or several apps on one VM?
+|           -> PIPELINE FROM CATALOG TEMPLATE
+|              elestio cicd deploy-template <software> --target <vmID>
+|
++-- NO, it is the user's own code
+    |
+    +-- In a Git repo?
+    |       -> elestio cicd create --auto --target <vmID> --name X --repo owner/repo
+    |
+    +-- Just a docker-compose file?
+            -> elestio cicd create <pipeline.json>
+```
+
+### CRITICAL: catalog software in a pipeline
+
+To run catalog software (n8n, Rybbit, Plausible, ...) on a CI/CD target, you
+MUST use `elestio cicd deploy-template`. You must NOT use `elestio cicd create`.
+
+`cicd create` builds an EMPTY pipeline. It does not know the software's ports,
+environment variables or install scripts, so the pipeline deploys and nothing
+runs. This is the most frequently reported failure.
+
+`deploy-template` reads the template's `elestio.yml` (from
+`github.com/elestio-examples/<software>`) and configures the pipeline from it.
+
+```bash
+# RIGHT
+elestio cicd deploy-template n8n --target <vmID> --owner <git-user>
+
+# WRONG -- produces an empty pipeline
+elestio cicd create --auto --target <vmID> --name n8n --repo elestio-examples/n8n
+```
+
+To check the catalog:
+  elestio templates search <software-name>     # everything
+  elestio cicd templates <software-name>       # deployable as a pipeline
+  elestio clusters templates                   # supports clustering
 
 ---
 
@@ -130,22 +161,87 @@ elestio deploy redis --project 112
 elestio deploy wordpress --project 112
 ```
 
-### Deploy Custom App from GitHub (Automated -- Recommended)
+### Deploy a Cluster (replication / HA)
+
+```bash
+# 1. Check the software supports clustering and see its minimum node count
+elestio clusters templates
+
+# 2. ALWAYS dry-run first: billing is per VM, --nodes 3 bills 3 VMs
+elestio deploy postgresql --cluster --nodes 3 --project 112 --dry-run
+
+# 3. Deploy
+elestio deploy postgresql --cluster --nodes 3 --project 112
+
+# 4. Follow it
+elestio clusters list --project 112
+elestio clusters info <clusterID>
+```
+
+Rules:
+- `--nodes` is the TOTAL, primary included. `--nodes 3` = 1 primary + 2 replicas.
+- ClickHouse, Vault, OpenSearch, RabbitMQ, rke2 and Nats need at least 3 nodes.
+- Everything else starts at 2. Maximum is 15.
+- `--cluster-mode multi-master` works for MySQL only; all others are
+  `primary-replica` (the default).
+
+### Deploy Catalog Software as a Pipeline (n8n, Rybbit, Plausible...)
+
+This is the route to use whenever the user wants catalog software on a CI/CD
+target rather than a dedicated VM.
+
+```bash
+# 1. Create a CI/CD target if none exists (this is a VM; pipelines share it)
+elestio deploy CI-CD-Target --project 112 --name my-target
+# -> note the vmID
+
+# 2. Confirm the software is available as a pipeline template
+elestio cicd templates n8n
+
+# 3. ALWAYS dry-run first: it prints the ports, env vars and lifecycle hooks
+#    that will be applied, and creates nothing
+elestio cicd deploy-template n8n --target <vmID> --no-git --dry-run
+
+# 4a. Preferred: generates the template repo into the user's Git account.
+#     Requires a GitHub/GitLab account connected in the dashboard.
+elestio cicd deploy-template n8n --target <vmID> --owner <git-user>
+
+# 4b. No Git account available:
+elestio cicd deploy-template n8n --target <vmID> --no-git
+```
+
+On success the CLI prints the software's URL, login and generated password.
+
+**Choosing between the two routes:**
+
+| | `--owner <git-user>` | `--no-git` |
+|---|---|---|
+| Needs a connected Git account | Yes | No |
+| Lifecycle scripts (preInstall/postInstall) | Run | **Skipped** |
+| User can edit the code afterwards | Yes | No |
+
+If the dry-run shows a `Lifecycle:` line, the software needs those scripts.
+Use the Git route, or warn the user that it may not start.
+
+### Deploy Custom App from GitHub (user's own code)
 
 ```bash
 # 1. Deploy CI/CD target
-elestio deploy cicd --project 112 --name my-cicd
+elestio deploy CI-CD-Target --project 112 --name my-cicd
 
-# 2. Auto-create pipeline (handles everything: SSH, Dockerfile, build, start)
+# 2. Auto-create pipeline
 elestio cicd create --auto --target <vmID> --name my-app --repo owner/repo --mode github --auth-id <authID>
 # -> Site is live at https://<name>-u<userID>.vm.elestio.app/
 ```
+
+Use this ONLY for the user's own repository. For catalog software, use
+`cicd deploy-template` instead -- see above.
 
 ### Deploy Custom App (Manual -- Docker mode)
 
 ```bash
 # 1. Deploy CI/CD target
-elestio deploy cicd --project 112 --name my-cicd
+elestio deploy CI-CD-Target --project 112 --name my-cicd
 
 # 2. Add SSH key for agent access
 elestio ssh-keys add <vmID> --name "agent-key" --key "ssh-ed25519 AAAA..."
@@ -292,7 +388,8 @@ elestio services                   # List all services
 elestio services --project 123     # Filter by project
 elestio service <vmID>             # Service details
 elestio deploy <template> --project X --name Y
-elestio deploy cicd --project X    # Deploy CI/CD target
+elestio deploy <template> --cluster --nodes 3   # Cluster (see Clusters below)
+elestio deploy CI-CD-Target --project X         # Deploy a CI/CD target VM
 elestio delete-service <vmID> --force
 elestio move-service <vmID> <targetProjectId>
 elestio wait <vmID>                # Wait for deployment
@@ -421,14 +518,55 @@ elestio volumes delete <vmID> <volumeID>
 elestio volumes protect <vmID> <volumeID>
 ```
 
+### Clusters
+
+```bash
+elestio clusters templates                  # Software that supports clustering
+elestio clusters                            # List clusters in the project
+elestio clusters info <clusterID>           # Details + nodes
+elestio clusters nodes <clusterID>          # Active nodes only
+
+# Creation goes through deploy, not through clusters
+elestio deploy <template> --cluster --nodes <n> [--cluster-mode multi-master]
+
+# Operations -- all destructive ones require --force
+elestio clusters promote <clusterID> <vmID> --force   # Promote a replica
+elestio clusters failover <clusterID> --force         # Trigger failover
+elestio clusters resync <clusterID> --force           # ERASES replica data
+elestio clusters lock <clusterID>                     # Termination protection
+elestio clusters unlock <clusterID>
+```
+
+**Constraints (the CLI enforces these before calling the API):**
+
+| Rule | Value |
+|---|---|
+| `--nodes` counts | Total nodes, primary included |
+| Minimum, most software | 2 |
+| Minimum: ClickHouse, Vault, OpenSearch, RabbitMQ, rke2, Nats | 3 (quorum) |
+| Maximum | 15 |
+| `--cluster-mode multi-master` | MySQL only |
+| Billing | Per VM. `--nodes 5` bills 5 VMs. |
+
+NEVER deploy a cluster without running `--dry-run` first and telling the user
+the VM count and cost.
+
 ### CI/CD Pipelines
 
 ```bash
+# CATALOG SOFTWARE -> always use deploy-template (reads the template elestio.yml)
+elestio cicd templates [query]     # Catalog software deployable as a pipeline
+elestio cicd deploy-template <software> --target <vmID> --owner <git-user>
+elestio cicd deploy-template <software> --target <vmID> --no-git
+elestio cicd deploy-template <software> --target <vmID> --no-git --dry-run
+# Options: --name, --branch, --private, --non-org, --auth-id, --git-type,
+#          --repo-name, --build-cmd, --run-cmd, --install-cmd, --build-dir
+
 elestio cicd targets               # List CI/CD targets
 elestio cicd pipelines <vmID>      # List pipelines
 elestio cicd pipeline-info <vmID> <pipelineID>
 
-# Automated pipeline creation (recommended for GitHub/GitLab repos)
+# USER'S OWN REPO -> create --auto. Never use this for catalog software.
 elestio cicd create --auto --target <vmID> --name my-app --repo owner/repo --mode github
 elestio cicd create --auto --target <vmID> --name my-app --repo owner/repo --mode github --auth-id <id>
 # Modes: github, github-fullstack, gitlab, gitlab-fullstack, docker
@@ -528,11 +666,14 @@ Agent: Deploys with all confirmed parameters
 3. **Check deployment status** -- After deploy, wait for `deploymentStatus = "Deployed"` before accessing
 4. **Never delete without confirmation** -- Always require `--force` flag
 5. **Use catalog when possible** -- Phase 3 (catalog) is simpler than Phase 4 (CI/CD)
+5b. **Catalog software in a pipeline -> `cicd deploy-template`, NEVER `cicd create`** -- `cicd create` cannot know the software's ports, env vars or install scripts, so it produces a pipeline that deploys and runs nothing
 6. **Validate combos** -- Provider + datacenter + serverType must match `elestio sizes`
 7. **Account must be approved** -- New accounts need credit card + approval before deploying
 8. **ALWAYS follow the Interactive Deployment Procedure above** -- Never skip parameter questions
 9. **Set default project** -- Use `elestio config --set-default-project <id>` to avoid passing `--project` every time
 10. **Service belongs to project** -- When using `elestio service <vmID>`, ensure the vmID belongs to the current default project or specify `--project`
+11. **Dry-run anything that multiplies VMs** -- Always run `--dry-run` before a cluster deploy and tell the user the VM count and monthly cost; clusters bill per VM
+12. **`--nodes` is the total** -- `--nodes 3` is 1 primary + 2 replicas and bills 3 VMs, not 4
 
 ---
 
@@ -598,11 +739,18 @@ Not all cloud providers support all features. Use `--provider` to switch.
 
 ### After Creating CI/CD Target
 
-**Automated (recommended):**
+**Catalog software (n8n, Rybbit, Plausible...) -- use this:**
+1. **Check it is available:** `elestio cicd templates <software>`
+2. **Preview:** `elestio cicd deploy-template <software> --target <vmID> --no-git --dry-run`
+3. **Deploy:** `elestio cicd deploy-template <software> --target <vmID> --owner <git-user>`
+4. **Report the printed URL, login and password to the user**
+5. **Add a domain:** `elestio cicd domain-add <vmID> --pipeline <pipelineID> --domain myapp.example.com`
+
+**User's own repo:**
 1. **Auto-create pipeline:** `elestio cicd create --auto --target <vmID> --name my-app --repo owner/repo --mode github --auth-id <id>`
 2. Site is live -- CLI handles SSH, Dockerfile, build, start automatically
 
-**Manual:**
+**Manual docker-compose:**
 1. **Add SSH key:** `elestio ssh-keys add <vmID> --name "name" --key "key"`
 2. **Create pipeline:** `elestio cicd create pipeline.json`
 3. **SSH and configure:** `ssh root@<ipv4>`
@@ -644,12 +792,53 @@ elestio auth test
 - Check the correct project: `elestio services --project X`
 - vmID looks like: `12345678` (numeric)
 
-### Pipeline not working
+### Pipeline deployed but the software is not running (MOST COMMON)
+
+Almost always: the pipeline was created with `cicd create` instead of
+`cicd deploy-template`, so it has no ports, no environment variables and no
+install scripts.
+
+```bash
+# Confirm: a pipeline built correctly has env vars
+elestio cicd pipeline-info <vmID> <pipelineID>
+
+# Fix: delete it and redeploy through deploy-template
+elestio cicd pipeline-delete <vmID> <pipelineID> --force
+elestio cicd deploy-template <software> --target <vmID> --owner <git-user>
+```
+
+### Software starts then exits immediately
+
+The template declares `preInstall`/`postInstall` scripts and was deployed with
+`--no-git`, which has no repo checkout to run them from.
+
+```bash
+# See which hooks the template needs
+elestio cicd deploy-template <software> --target <vmID> --no-git --dry-run
+# If a "Lifecycle:" line appears, redeploy through the Git route
+elestio cicd deploy-template <software> --target <vmID> --owner <git-user>
+```
+
+### "No elestio.yml found at ..."
+
+That software has no pipeline template and cannot be deployed as a pipeline.
+Deploy it as a managed service instead: `elestio deploy <template>`.
+
+### Pipeline not working (general)
 
 1. SSH into CI/CD target: `ssh root@<ipv4>`
 2. Check logs: `cd /opt/app/<pipeline-name> && docker-compose logs`
 3. Verify docker-compose.yml syntax
 4. Check port mapping: `172.17.0.1:3000` (internal network)
+
+### Cluster errors
+
+| Message | Cause |
+|---|---|
+| `does not support clustering` | Not one of the clusterable templates -- run `elestio clusters templates` |
+| `needs at least 3 nodes` | Quorum software (ClickHouse, Vault, OpenSearch, RabbitMQ, rke2, Nats) |
+| `does not support multi-master` | `--cluster-mode multi-master` works for MySQL only |
+| `cannot exceed 15 nodes` | Hard platform cap |
 
 ### "variables.trim is not a function" (500 Pipeline.CreateFailed)
 
@@ -657,6 +846,8 @@ The `variables` field in the pipeline payload must be a **string**, never an arr
 
 - Correct: `"variables": ""` (no env vars) or `"variables": "KEY=value\nKEY2=value2"`.
 - Wrong: `"variables": []` or leaving the field out entirely.
+
+The CLI enforces this from 1.0.4. If you hit it, upgrade: `npm install -g elestio@latest`.
 
 ---
 
