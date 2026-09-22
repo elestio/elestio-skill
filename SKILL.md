@@ -546,7 +546,7 @@ elestio deploy <template> --cluster --nodes <n> [--cluster-mode multi-master]
 
 # Operations -- all destructive ones require --force
 elestio clusters promote <clusterID> <vmID> --force   # Promote a replica
-elestio clusters failover <clusterID> --force         # Trigger failover
+elestio clusters failover <clusterID> on|off          # AUTOMATIC failover switch, does not switch now
 elestio clusters resync <clusterID> --force           # ERASES replica data
 elestio clusters lock <clusterID>                     # Termination protection
 elestio clusters unlock <clusterID>
@@ -562,6 +562,8 @@ elestio clusters unlock <clusterID>
 | Maximum | 15 |
 | `--cluster-mode multi-master` | MySQL only |
 | Billing | Per VM. `--nodes 5` bills 5 VMs. |
+| Switching primary by hand | `promote`, NOT `failover` (which only toggles automatic failover) |
+| Replicas | Read-only, and no SSL: `sslmode=require` fails on a replica |
 
 NEVER deploy a cluster without running `--dry-run` first and telling the user
 the VM count and cost.
