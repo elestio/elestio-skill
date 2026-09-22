@@ -213,17 +213,30 @@ On success the CLI prints the software's URL, login and generated password.
 | | compose (default) | git (`--owner <git-user>`) |
 |---|---|---|
 | Needs a connected Git account | No | Yes |
-| Lifecycle scripts (preInstall/postInstall) | **Skipped** | Run |
-| User can edit the code afterwards | No | Yes |
+| Lifecycle scripts (preInstall/postInstall) | Skipped | Run |
+| Repo files the compose mounts | Unavailable | Available |
+| Works for | Templates needing no repo files | Every template |
 
 **The git route is currently unavailable**: it needs
 `POST /api/cicd/createRepoByTemplate`, which the Elestio API returns 404 for
 (the controller exists but is not registered in the backend route whitelist).
-Use the compose route until that is fixed.
 
-If the dry-run shows a `Lifecycle:` line, those scripts will be skipped. Tell
-the user the software may not start, and do not claim success without
-verifying with `elestio cicd pipeline-logs`.
+**The compose route does not work for every template.** If the compose
+bind-mounts a file from the repo, the CLI refuses with the file names. Do NOT
+pass --force to get past it: Docker creates the missing file as a directory and
+the container fails to start. Tell the user that software needs the git route,
+which is currently blocked, and offer a managed service instead
+(`elestio deploy <template>`).
+
+Verified: vaultwarden, redis and metabase deploy cleanly on the compose route;
+n8n, rybbit and wordpress need the git route.
+
+ALWAYS verify a deployment instead of assuming it worked:
+
+```bash
+elestio cicd pipelines <vmID>                          # Build column must say "success"
+elestio cicd pipeline-history <vmID> <pipelineID>      # Status, duration, log file
+```
 
 ### Deploy Custom App from GitHub (user's own code)
 
