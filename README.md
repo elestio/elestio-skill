@@ -4,7 +4,7 @@ Agent skill for [Elestio](https://elest.io), following the [Agent Skills](https:
 
 Deploy and manage services on the Elestio DevOps platform. 400+ open-source templates, 9 cloud providers, 100+ regions.
 
-Uses the **official Elestio CLI** (`npm install -g elestio`, version 1.1.0 or later), or the tools of the
+Uses the **official Elestio CLI** (`npm install -g elestio`, version 1.2.0 or later), or the tools of the
 **Elestio MCP connector** when an agent has it: `SKILL.md` maps every command to its MCP tool.
 
 ## Installation
@@ -64,6 +64,9 @@ elestio deploy postgresql --project 112 --name my-db
 # Deploy a PostgreSQL cluster (1 primary + 2 replicas, billed per VM): dry-run first
 elestio deploy postgresql --cluster --nodes 3 --project 112 --dry-run
 
+# Grow it by one node later (copies the primary)
+elestio clusters add-node <clusterID> --dry-run
+
 # Run catalog software on a CI/CD target, configured from its elestio.yml
 elestio deploy CI-CD-Target --project 112 --name my-cicd
 elestio cicd deploy-template vaultwarden --target <vmID>
@@ -88,7 +91,7 @@ elestio-skill/
 
 ## Requirements
 
-- Node.js >= 18 and elestio CLI >= 1.1.0 (the installer takes care of it), or the Elestio MCP connector
+- Node.js >= 18 and elestio CLI >= 1.2.0 (the installer takes care of it), or the Elestio MCP connector
 - An Elestio account with API token ([create one here](https://dash.elest.io/account/security))
 
 ## References

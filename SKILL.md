@@ -1,15 +1,15 @@
 ---
 name: elestio
 description: Deploy and manage services on the Elestio DevOps platform. Use when the user wants to deploy apps, databases, or infrastructure on Elestio, manage projects, services, clusters, CI/CD pipelines, backups, domains, firewall, volumes, or billing. Covers 400+ open-source templates across 9 cloud providers, database clustering, and deploying catalog software as CI/CD pipelines.
-compatibility: Requires an Elestio account with an API token, and either the official Elestio CLI >= 1.1.0 (Node.js >= 18, npm install -g elestio) or the Elestio MCP connector
+compatibility: Requires an Elestio account with an API token, and either the official Elestio CLI >= 1.2.0 (Node.js >= 18, npm install -g elestio) or the Elestio MCP connector
 metadata:
   author: getateam
-  version: "2.2"
+  version: "2.3"
 ---
 
 # Elestio Skill
 
-**Version:** 2.2
+**Version:** 2.3
 **Purpose:** Deploy and manage services on Elestio DevOps platform
 **Status:** Ready to use
 **Last Updated:** 2026-09-22
@@ -140,7 +140,14 @@ every rule in this skill applies to them. Destructive tools require
 | Automatic failover on/off | `elestio clusters failover <clusterID> on\|off` | `set_cluster_auto_failover` |
 | Rebuild replicas | `elestio clusters resync <clusterID> --force` | `resync_cluster` |
 | Lock / unlock a cluster | `elestio clusters lock\|unlock <clusterID>` | `lock_cluster` / `unlock_cluster` |
+| Add a node | `elestio clusters add-node <clusterID> [--dry-run]` | `add_cluster_node` (supports `dry_run`) |
+| Remove a node | `elestio clusters remove-node <clusterID> <vmID> --force` | `remove_cluster_node` |
+| Cluster firewall | `elestio clusters firewall\|firewall-restrict\|firewall-open <clusterID>` | `get_cluster_firewall` / `set_cluster_port_access` |
 | Delete a cluster | `elestio clusters delete <clusterID> --force` | `delete_cluster` |
+| Build history of a pipeline | `elestio cicd pipeline-history <vmID> <pipelineID>` | `get_pipeline_history` |
+| Delete a pipeline | `elestio cicd pipeline-delete <vmID> <pipelineID> --force` | `delete_pipeline` |
+| Live logs of a service | `elestio logs <vmID>` | `get_service_logs` |
+| Audit trail of a service | `elestio audits <vmID>` | `get_service_audits` |
 
 The MCP has no dry run for `deploy_template`: before a cluster, state the VM
 count and monthly cost yourself (`list_providers_and_sizes` gives the price per
@@ -608,6 +615,8 @@ elestio ssh <vmID>                 # SSH terminal URL
 elestio ssh <vmID> --direct        # Direct SSH command
 elestio vscode <vmID>              # VSCode web URL
 elestio files <vmID>               # File explorer URL
+elestio logs <vmID>                # Live app logs (temporary URL); --mode install for the install log
+elestio audits <vmID> [--days 7]   # Who did what on the service
 ```
 
 ### Volumes
@@ -643,6 +652,16 @@ elestio clusters resync <clusterID> --force           # ERASES replica data
 elestio clusters lock <clusterID>                     # Termination protection
 elestio clusters unlock <clusterID>
 elestio clusters delete <clusterID> --force           # Deletes ALL nodes (not delete-service)
+
+# Nodes -- dry-run add-node first: billed as one more VM
+elestio clusters add-node <clusterID> --dry-run       # Copies the primary: provider, region, size, version
+elestio clusters add-node <clusterID> [--size X] [--region Y]
+elestio clusters remove-node <clusterID> <vmID> --force   # Replicas only
+
+# Firewall -- applies to every node; the cluster's own nodes stay allowed
+elestio clusters firewall <clusterID>
+elestio clusters firewall-restrict <clusterID> --port 25432 --ips 203.0.113.7,198.51.100.0/24
+elestio clusters firewall-open <clusterID> --port 25432
 ```
 
 **Constraints (the CLI enforces these before calling the API):**
@@ -657,6 +676,10 @@ elestio clusters delete <clusterID> --force           # Deletes ALL nodes (not d
 | Billing | Per VM. `--nodes 5` bills 5 VMs. |
 | Switching primary by hand | `promote`, NOT `failover` (which only toggles automatic failover) |
 | Replicas | Read-only, and no SSL: `sslmode=require` fails on a replica |
+| `add-node` prerequisites | Remote backups on the primary (`elestio backups auto-enable <vmID>`), primary-replica mode |
+| After `add-node` | The VM deploys, then Elestio spends a few minutes making it a replica. The cluster reads `running` meanwhile; wait before other node or firewall changes (the CLI refuses them) |
+| Removing the primary | Not possible: `promote` a replica first, or delete the cluster |
+| Restricting access | `clusters firewall-restrict`, never `elestio firewall` on one node: it would drift from the others |
 
 NEVER deploy a cluster without running `--dry-run` first and telling the user
 the VM count and cost.
@@ -870,7 +893,8 @@ Not all cloud providers support all features. Use `--provider` to switch.
 
 1. **Re-authenticate:** `elestio auth test`
 2. **Check status:** `elestio service <vmID>`
-3. **View logs:** `elestio cicd pipeline-logs <vmID> <pipelineID>`
+3. **View logs:** `elestio logs <vmID>` (service) or `elestio cicd pipeline-logs <vmID> <pipelineID>` (pipeline)
+3b. **See what changed:** `elestio audits <vmID>`
 4. **Restart stack:** `elestio restart-stack <vmID>`
 
 ---
@@ -955,6 +979,9 @@ Deploy it as a managed service instead: `elestio deploy <template>`.
 | `needs at least 3 nodes` | Quorum software (ClickHouse, Vault, OpenSearch, RabbitMQ, rke2, Nats) |
 | `does not support multi-master` | `--cluster-mode multi-master` works for MySQL only |
 | `cannot exceed 15 nodes` | Hard platform cap |
+| `remote backups are off` (add-node) | New nodes are seeded from the primary's remote backup: `elestio backups auto-enable <primary vmID>` |
+| `is busy (add-node)` | A node is still being configured; wait a few minutes |
+| `is the primary` (remove-node) | Promote a replica first, or delete the whole cluster |
 
 ### "variables.trim is not a function" (500 Pipeline.CreateFailed)
 
