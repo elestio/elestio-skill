@@ -272,14 +272,15 @@ On success the CLI prints the software's URL, login and generated password.
 (the controller exists but is not registered in the backend route whitelist).
 
 **The compose route does not work for every template.** If the compose
-bind-mounts a file from the repo, the CLI refuses with the file names. Do NOT
+bind-mounts a file from the repo -- quoted or not, short or long syntax -- the
+CLI refuses with the file names. Do NOT
 pass --force to get past it: Docker creates the missing file as a directory and
 the container fails to start. Tell the user that software needs the git route,
 which is currently blocked, and offer a managed service instead
 (`elestio deploy <template>`).
 
 Verified: vaultwarden, redis and metabase deploy cleanly on the compose route;
-n8n, rybbit and wordpress need the git route.
+n8n, chromadb, rybbit and wordpress need the git route.
 
 ALWAYS verify a deployment instead of assuming it worked:
 
@@ -716,7 +717,9 @@ elestio cicd create <config.json>
 # Pipeline actions
 elestio cicd pipeline-restart <vmID> <pipelineID>
 elestio cicd pipeline-stop <vmID> <pipelineID>
-elestio cicd pipeline-logs <vmID> <pipelineID>
+elestio cicd pipeline-logs <vmID> <pipelineID>          # Running app logs
+elestio cicd pipeline-log <vmID> --pipeline <id>       # Latest build log (URL)
+elestio cicd pipeline-log <vmID> --pipeline <id> --file <logID>   # One build, logID from pipeline-history
 elestio cicd pipeline-history <vmID> <pipelineID>
 elestio cicd pipeline-delete <vmID> <pipelineID> --force
 
@@ -955,9 +958,15 @@ has no repo checkout to run them from.
 elestio cicd deploy-template <software> --target <vmID> --dry-run
 ```
 
-If a "Lifecycle:" line appears, the software needs those scripts. The git route
-runs them but is currently unavailable (API returns 404 for
-createRepoByTemplate). Report this to the user rather than retrying.
+**Every** catalog template declares these scripts, so their presence alone
+means nothing: vaultwarden, redis and metabase deploy and run fine without
+them. What they contain cannot be read (the template repos are private to
+Elestio). So the CLI and the MCP warn and continue.
+
+If the software does need them -- no admin account, empty database, sign-up
+left open -- the git route would run them, but it is unavailable (the API
+returns 404 for createRepoByTemplate). Deploy that software as a managed
+service instead: `elestio deploy <template>`. Do not retry the pipeline.
 
 ### "No elestio.yml found at ..."
 
