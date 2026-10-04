@@ -850,6 +850,25 @@ Not all cloud providers support all features. Use `--provider` to switch.
 
 ---
 
+## Rate Limiting (read before any loop)
+
+The API throttles bursts, then answers `Access temporarily restricted` on every
+endpoint for several minutes -- authentication included, so it looks like a
+credentials problem and is not.
+
+- **Never fan out.** Looping over services, projects or the 420-template
+  catalogue must be sequential, with roughly a second between calls. A parallel
+  sweep got an account restricted for more than half an hour.
+- **Stop on it, do not retry in a loop**: retrying adds requests to an account
+  that is already being throttled.
+- **Never treat it as an empty result.** A script that reads it as "this
+  template has no config" reports success while having learned nothing.
+- Tell the user to wait a few minutes, then resume where you stopped.
+
+The CLI (>= 1.2.3) and the MCP connector both report this explicitly.
+
+---
+
 ## Error Handling
 
 | Error | Cause | Solution |
