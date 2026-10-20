@@ -597,7 +597,7 @@ elestio backups local-delete <vmID> /opt/app-backups/backup.zst
 # Remote backups (Elestio managed)
 elestio backups remote-list <vmID>
 elestio backups remote-take <vmID>
-elestio backups remote-restore <vmID> <snapshot-name>
+elestio backups remote-restore <vmID> <backup-name>
 elestio backups auto-enable <vmID>
 elestio backups auto-disable <vmID>
 
@@ -611,16 +611,12 @@ elestio s3-backup restore <vmID> <backup-key>
 elestio s3-backup delete <vmID> <backup-key>
 ```
 
-### Snapshots (Provider-level)
+### Snapshots
 
-```bash
-elestio snapshots list <vmID>      # List all snapshots
-elestio snapshots take <vmID>      # Create manual snapshot
-elestio snapshots restore <vmID> <id>  # Restore snapshot (0 = most recent)
-elestio snapshots delete <vmID> <id>   # Delete snapshot
-elestio snapshots auto-enable <vmID>   # Enable automatic snapshots
-elestio snapshots auto-disable <vmID>  # Disable automatic snapshots
-```
+Elestio no longer offers VM snapshots, on any provider (dropped on 2026-08-06):
+there is no snapshot command in the CLI or tool in the MCP. If a user asks for
+one, use backups instead (`elestio backups remote-take`, scheduled with
+`backups auto-enable`).
 
 ### Access & Credentials
 
@@ -769,7 +765,7 @@ elestio billing project <id>       # Per-service breakdown
 
 **1. Provider** -- Ask using `AskUserQuestion`:
 - Netcup (Recommended) -- Best price/performance ratio, EU-based, reliable
-- Hetzner -- Best features: full volume, snapshot & power management support
+- Hetzner -- Best features: full volume & power management support
 - OVHcloud -- European provider, 35 regions worldwide, unlimited bandwidth, 50% off every resource until Jan 1, 2027
 - AWS -- Amazon Web Services, global reach
 - Azure -- Microsoft cloud
@@ -856,7 +852,6 @@ Not all cloud providers support all features. Use `--provider` to switch.
 | Catalog deploy | yes | yes | yes | yes | yes | yes |
 | CI/CD deploy | yes | yes | yes | yes | yes | yes |
 | **Volumes** | no | yes | yes (NVME, HDD; no HDD in Paris/Milan) | yes | yes | yes |
-| **Snapshots** | limited | yes | no (use backups) | yes | yes | yes |
 | Power actions | limited | yes | yes | yes | yes | yes |
 | Firewall | yes | yes | yes | yes | yes | yes |
 | SSL/Domains | yes | yes | yes | yes | yes | yes |
@@ -871,7 +866,7 @@ There is no GCP provider on Elestio.
 
 **OVHcloud never shrinks the disk**, in either direction: a plan with a smaller disk is refused even when CPU and RAM stay the same (`LARGE-4C-8G` 100 GB -> `LARGE-4C-8G-D2` 50 GB). Pick a target whose `storageGB` (in `elestio sizes --provider ovh --json`) is at least the current one.
 
-**Recommendation:** Use **Hetzner** if you need volumes, snapshots, or full power management. Use **netcup** for best value when basic features suffice. Use **OVHcloud** for a European provider with many regions, unlimited bandwidth and the launch offer. Use **netcup, AWS, Azure, Scaleway or OVHcloud** if you need the flexibility to downgrade instance sizes.
+**Recommendation:** Use **Hetzner** if you need volumes or full power management. Use **netcup** for best value when basic features suffice. Use **OVHcloud** for a European provider with many regions, unlimited bandwidth and the launch offer. Use **netcup, AWS, Azure, Scaleway or OVHcloud** if you need the flexibility to downgrade instance sizes.
 
 ---
 
