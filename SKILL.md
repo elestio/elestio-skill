@@ -865,6 +865,8 @@ Not all cloud providers support all features. Use `--provider` to switch.
 
 There is no GCP provider on Elestio.
 
+**OVHcloud IPs are static:** a service keeps the same public IPv4 and IPv6 for its whole life, resizes included, so DNS records and firewall allowlists pointing at it never need updating.
+
 **Size downgrade support:** Only **Netcup, AWS, Azure, Scaleway and OVHcloud** support downgrading instance sizes. Other providers (Hetzner, etc.) only support upgrades. Attempting a downgrade on an unsupported provider can block the service and require Elestio support intervention. The CLI will automatically block downgrade attempts on unsupported providers.
 
 **OVHcloud never shrinks the disk**, in either direction: a plan with a smaller disk is refused even when CPU and RAM stay the same (`LARGE-4C-8G` 100 GB -> `LARGE-4C-8G-D2` 50 GB). Pick a target whose `storageGB` (in `elestio sizes --provider ovh --json`) is at least the current one.
