@@ -638,7 +638,7 @@ elestio audits <vmID> [--days 7]   # Who did what on the service
 
 **Note:** Volume support depends on the cloud provider. Hetzner and OVHcloud support full volume operations. Some providers like netcup have limited or no volume support.
 
-`--type NVME` (default, high speed) or `--type HDD` (classic, cheaper). HDD exists only on Vultr and OVHcloud, and not in OVH `EU-WEST-PAR` (Paris) or `EU-SOUTH-MIL` (Milan): the CLI refuses it there.
+`--type NVME` (default, high speed) or `--type HDD` (classic, cheaper). On OVH: NVME $0.125/GB/month and HDD $0.075/GB/month during the launch offer (until Jan 1, 2027), then $0.25 and $0.15. HDD exists only on Vultr and OVHcloud, and not in OVH `EU-WEST-PAR` (Paris) or `EU-SOUTH-MIL` (Milan): the CLI refuses it there.
 
 ```bash
 elestio volumes                    # List all volumes in project
@@ -770,7 +770,7 @@ elestio billing project <id>       # Per-service breakdown
 **1. Provider** -- Ask using `AskUserQuestion`:
 - Netcup (Recommended) -- Best price/performance ratio, EU-based, reliable
 - Hetzner -- Best features: full volume, snapshot & power management support
-- OVHcloud -- European provider, 35 regions worldwide, unlimited bandwidth, 50% off VMs until Jan 1, 2027
+- OVHcloud -- European provider, 35 regions worldwide, unlimited bandwidth, 50% off every resource until Jan 1, 2027
 - AWS -- Amazon Web Services, global reach
 - Azure -- Microsoft cloud
 
@@ -791,7 +791,7 @@ Use `elestio sizes --provider <provider>` to get exact available regions if need
 
 Use `elestio sizes --provider <provider>` to get exact sizes/pricing for the chosen provider.
 
-**OVHcloud pricing:** VMs are 50% off until Jan 1, 2027 (launch offer; support plans are not discounted). `elestio sizes`, `deploy --dry-run` and the MCP's `list_providers_and_sizes` already show the discounted price (`listPricePerHour` keeps the list price), so quote that one, and say it is a launch offer. Cheapest OVH plan: SMALL-1C-2G-D2, about $10/mo during the offer ($21/mo list).
+**OVHcloud pricing:** every OVH resource is 50% off until Jan 1, 2027 (launch offer): services, CI/CD targets, load balancers and volumes. Support plans are not discounted. Volumes: NVME (high speed) $0.25/GB/month, $0.125 during the offer; HDD (classic) $0.15/GB/month, $0.075 during the offer. `elestio sizes`, `deploy --dry-run` and the MCP's `list_providers_and_sizes` already show the discounted price (`listPricePerHour` keeps the list price), so quote that one, and say it is a launch offer. Cheapest OVH plan: SMALL-1C-2G-D2, about $10/mo during the offer ($21/mo list).
 
 **4. Name of Service** -- Do NOT use `AskUserQuestion`. Simply ask the user in plain text to provide a name, suggesting a default based on the service type (e.g., "prod-postgres", "staging-redis"). Wait for user text input.
 
