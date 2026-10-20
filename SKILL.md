@@ -1,7 +1,7 @@
 ---
 name: elestio
-description: Deploy and manage services on the Elestio DevOps platform. Use when the user wants to deploy apps, databases, or infrastructure on Elestio, manage projects, services, clusters, CI/CD pipelines, backups, domains, firewall, volumes, or billing. Covers 400+ open-source templates across 9 cloud providers, database clustering, and deploying catalog software as CI/CD pipelines.
-compatibility: Requires an Elestio account with an API token, and either the official Elestio CLI >= 1.3.0 (Node.js >= 18, npm install -g elestio) or the Elestio MCP connector
+description: Deploy and manage services on the Elestio DevOps platform. Use when the user wants to deploy apps, databases, or infrastructure on Elestio, manage projects, services, clusters, CI/CD pipelines, backups, domains, firewall, volumes, or billing. Covers 400+ open-source templates across 10 cloud providers, database clustering, and deploying catalog software as CI/CD pipelines.
+compatibility: Requires an Elestio account with an API token, and either the official Elestio CLI >= 1.4.0 (Node.js >= 18, npm install -g elestio) or the Elestio MCP connector
 metadata:
   author: getateam
   version: "2.4"
@@ -14,7 +14,7 @@ metadata:
 **Status:** Ready to use
 **Last Updated:** 2026-09-22
 
-Elestio is a fully managed DevOps platform. Dedicated VMs (not shared Kubernetes). 400+ open-source templates, 9 cloud providers, 100+ regions. Handles deployment, security, updates, backups, monitoring, support.
+Elestio is a fully managed DevOps platform. Dedicated VMs (not shared Kubernetes). 400+ open-source templates, 10 cloud providers, 100+ regions. Handles deployment, security, updates, backups, monitoring, support.
 
 This skill uses the **official Elestio CLI** (`elestio` command, installed via `npm install -g elestio`).
 When the **Elestio MCP connector** is available instead (tools such as `deploy_template`,
@@ -155,8 +155,14 @@ every rule in this skill applies to them. Destructive tools require
 | Audit trail of a service | `elestio audits <vmID>` | `get_service_audits` |
 
 The MCP has no dry run for `deploy_template`: before a cluster, state the VM
-count and monthly cost yourself (`list_providers_and_sizes` gives the price per
-VM) and get the user's go-ahead.
+count and monthly cost yourself (`list_providers_and_sizes` with `provider` and
+`region` gives the price per VM) and get the user's go-ahead. Called without a
+filter, `list_providers_and_sizes` only returns each provider's regions.
+
+MCP `provider` values: `netcup`, `hetzner`, `ovh`, `aws`, `lightsail`, `azure`,
+`scaleway`, `linode`, `digitalocean`, `vultr`, `tcloud`. Outside netcup and OVH,
+`deploy_template` needs an explicit `region`. `attach_volume` takes
+`storage_type` (`NVME` or `HDD`).
 
 ---
 
@@ -490,6 +496,7 @@ elestio templates info <name>      # Template details
 elestio categories                 # List categories
 elestio sizes                      # All provider/region/size combos
 elestio sizes --provider netcup    # Filter by provider
+elestio sizes --provider ovh       # OVHcloud: prices already include the launch offer
 ```
 
 ### Projects
@@ -528,7 +535,7 @@ elestio poweron <vmID>             # Power on
 elestio restart-stack <vmID>       # Restart Docker only (fastest)
 elestio lock <vmID>                # Enable termination protection
 elestio unlock <vmID>              # Disable termination protection
-elestio resize <vmID> --size LARGE-4C-8G  # Upgrade/downgrade VM size
+elestio resize <vmID> --size LARGE-4C-8G  # Upgrade/downgrade VM size (OVH: never to a smaller disk)
 ```
 
 ### Firewall
@@ -590,7 +597,7 @@ elestio backups local-delete <vmID> /opt/app-backups/backup.zst
 # Remote backups (Elestio managed)
 elestio backups remote-list <vmID>
 elestio backups remote-take <vmID>
-elestio backups remote-restore <vmID> <snapshot-name>
+elestio backups remote-restore <vmID> <backup-name>
 elestio backups auto-enable <vmID>
 elestio backups auto-disable <vmID>
 
@@ -604,16 +611,12 @@ elestio s3-backup restore <vmID> <backup-key>
 elestio s3-backup delete <vmID> <backup-key>
 ```
 
-### Snapshots (Provider-level)
+### Snapshots
 
-```bash
-elestio snapshots list <vmID>      # List all snapshots
-elestio snapshots take <vmID>      # Create manual snapshot
-elestio snapshots restore <vmID> <id>  # Restore snapshot (0 = most recent)
-elestio snapshots delete <vmID> <id>   # Delete snapshot
-elestio snapshots auto-enable <vmID>   # Enable automatic snapshots
-elestio snapshots auto-disable <vmID>  # Disable automatic snapshots
-```
+Elestio no longer offers VM snapshots, on any provider (dropped on 2026-08-06):
+there is no snapshot command in the CLI or tool in the MCP. If a user asks for
+one, use backups instead (`elestio backups remote-take`, scheduled with
+`backups auto-enable`).
 
 ### Access & Credentials
 
@@ -629,13 +632,15 @@ elestio audits <vmID> [--days 7]   # Who did what on the service
 
 ### Volumes
 
-**Note:** Volume support depends on the cloud provider. Hetzner supports full volume operations. Some providers like netcup have limited or no volume support.
+**Note:** Volume support depends on the cloud provider. Hetzner and OVHcloud support full volume operations. Some providers like netcup have limited or no volume support.
+
+`--type NVME` (default, high speed) or `--type HDD` (classic, cheaper). On OVH: NVME $0.125/GB/month and HDD $0.075/GB/month during the launch offer (until Jan 1, 2027), then $0.25 and $0.15. HDD exists only on Vultr and OVHcloud, and not in OVH `EU-WEST-PAR` (Paris) or `EU-SOUTH-MIL` (Milan): the CLI refuses it there.
 
 ```bash
 elestio volumes                    # List all volumes in project
-elestio volumes create --name X --size 10
+elestio volumes create --name X --size 10 [--type NVME|HDD]
 elestio volumes service-list <vmID>    # List attached to service
-elestio volumes service-create <vmID> --name X --size 10
+elestio volumes service-create <vmID> --name X --size 10 [--type NVME|HDD]
 elestio volumes resize <vmID> <volumeID> --size 20
 elestio volumes detach <vmID> <volumeID>
 elestio volumes delete <vmID> <volumeID>
@@ -760,13 +765,15 @@ elestio billing project <id>       # Per-service breakdown
 
 **1. Provider** -- Ask using `AskUserQuestion`:
 - Netcup (Recommended) -- Best price/performance ratio, EU-based, reliable
-- Hetzner -- Best features: full volume, snapshot & power management support
+- Hetzner -- Best features: full volume & power management support
+- OVHcloud -- European provider, 35 regions worldwide, unlimited bandwidth, 50% off every resource until Jan 1, 2027
 - AWS -- Amazon Web Services, global reach
 - Azure -- Microsoft cloud
 
 **2. Region** -- Ask using `AskUserQuestion`, based on selected provider:
 - Netcup: nbg (Europe - Germany, Nuremberg) | mns (North America - United States, Manassas)
 - Hetzner: fsn1 (Falkenstein, DE), nbg1 (Nuremberg, DE), hel1 (Helsinki, FI), ash (Ashburn, US)
+- OVHcloud: DE1 (Frankfurt, DE), GRA11 (Gravelines, FR), UK1 (London, UK), BHS5 (Beauharnois, CA), SGP1 (Singapore). Region codes are uppercase; Local Zones (`*-LZ-*`) offer fewer sizes
 - AWS: us-east-1, eu-west-1, ap-southeast-1, etc.
 - Azure: germanywestcentral, eastus, westeurope, etc.
 
@@ -780,6 +787,8 @@ Use `elestio sizes --provider <provider>` to get exact available regions if need
 
 Use `elestio sizes --provider <provider>` to get exact sizes/pricing for the chosen provider.
 
+**OVHcloud pricing:** every OVH resource is 50% off until Jan 1, 2027 (launch offer): services, CI/CD targets, load balancers and volumes. Support plans are not discounted. Volumes: NVME (high speed) $0.25/GB/month, $0.125 during the offer; HDD (classic) $0.15/GB/month, $0.075 during the offer. `elestio sizes`, `deploy --dry-run` and the MCP's `list_providers_and_sizes` already show the discounted price (`listPricePerHour` keeps the list price), so quote that one, and say it is a launch offer. Cheapest OVH plan: SMALL-1C-2G-D2, about $10/mo during the offer ($21/mo list).
+
 **4. Name of Service** -- Do NOT use `AskUserQuestion`. Simply ask the user in plain text to provide a name, suggesting a default based on the service type (e.g., "prod-postgres", "staging-redis"). Wait for user text input.
 
 **5. Admin Email** -- Ask using `AskUserQuestion`, propose the employer's email as default. Let the user confirm or change.
@@ -788,7 +797,7 @@ Use `elestio sizes --provider <provider>` to get exact sizes/pricing for the cho
 
 ```
 User: "Deploy PostgreSQL"
-Agent: [AskUserQuestion] Which cloud provider? (Netcup recommended, Hetzner, AWS, Azure)
+Agent: [AskUserQuestion] Which cloud provider? (Netcup recommended, Hetzner, OVHcloud, AWS, Azure)
 User: "Netcup"
 Agent: [AskUserQuestion] Which region? (nbg Europe-Germany, mns North America-US)
 User: "nbg"
@@ -825,8 +834,8 @@ Agent: Deploys with all confirmed parameters
 
 | Setting | Default | Override |
 |---------|---------|----------|
-| Provider | netcup | `--provider hetzner` |
-| Datacenter | nbg (Germany) | `--region fsn1` |
+| Provider | netcup | `--provider hetzner` / `--provider ovh` |
+| Datacenter | nbg (Germany) for netcup, DE1 (Frankfurt) for OVH | `--region fsn1` -- required for any other provider |
 | Server Size | MEDIUM-2C-4G | `--size LARGE-4C-8G` |
 | Support | level1 | `--support level2` |
 
@@ -838,20 +847,26 @@ Agent: Deploys with all confirmed parameters
 
 Not all cloud providers support all features. Use `--provider` to switch.
 
-| Feature | netcup | Hetzner | AWS | GCP | Azure | Scaleway |
-|---------|--------|---------|-----|-----|-------|----------|
+| Feature | netcup | Hetzner | OVHcloud | AWS | Azure | Scaleway |
+|---------|--------|---------|----------|-----|-------|----------|
 | Catalog deploy | yes | yes | yes | yes | yes | yes |
 | CI/CD deploy | yes | yes | yes | yes | yes | yes |
-| **Volumes** | no | yes | yes | yes | yes | yes |
-| **Snapshots** | limited | yes | yes | yes | yes | yes |
+| **Volumes** | no | yes | yes (NVME, HDD; no HDD in Paris/Milan) | yes | yes | yes |
 | Power actions | limited | yes | yes | yes | yes | yes |
 | Firewall | yes | yes | yes | yes | yes | yes |
 | SSL/Domains | yes | yes | yes | yes | yes | yes |
-| **Size downgrade** | yes | no | yes | no | yes | yes |
+| **Size downgrade** | yes | no | yes, equal or larger disk only | yes | yes | yes |
+| Bandwidth | | | unlimited | | | |
 
-**Size downgrade support:** Only **Netcup, AWS, Azure, and Scaleway** support downgrading instance sizes. Other providers (Hetzner, GCP, etc.) only support upgrades. Attempting a downgrade on an unsupported provider can block the service and require Elestio support intervention. The CLI will automatically block downgrade attempts on unsupported providers.
+There is no GCP provider on Elestio.
 
-**Recommendation:** Use **Hetzner** if you need volumes, snapshots, or full power management. Use **netcup** for best value when basic features suffice. Use **netcup, AWS, Azure, or Scaleway** if you need the flexibility to downgrade instance sizes.
+**OVHcloud IPs are static:** a service keeps the same public IPv4 and IPv6 for its whole life, resizes included, so DNS records and firewall allowlists pointing at it never need updating.
+
+**Size downgrade support:** Only **Netcup, AWS, Azure, Scaleway and OVHcloud** support downgrading instance sizes. Other providers (Hetzner, etc.) only support upgrades. Attempting a downgrade on an unsupported provider can block the service and require Elestio support intervention. The CLI will automatically block downgrade attempts on unsupported providers.
+
+**OVHcloud never shrinks the disk**, in either direction: a plan with a smaller disk is refused even when CPU and RAM stay the same (`LARGE-4C-8G` 100 GB -> `LARGE-4C-8G-D2` 50 GB). Pick a target whose `storageGB` (in `elestio sizes --provider ovh --json`) is at least the current one.
+
+**Recommendation:** Use **Hetzner** if you need volumes or full power management. Use **netcup** for best value when basic features suffice. Use **OVHcloud** for a European provider with many regions, unlimited bandwidth and the launch offer. Use **netcup, AWS, Azure, Scaleway or OVHcloud** if you need the flexibility to downgrade instance sizes.
 
 ---
 
@@ -883,6 +898,9 @@ The CLI (>= 1.2.3) and the MCP connector both report this explicitly.
 | "Account not approved" | New account without approval | Wait for approval or contact support@elest.io |
 | "Template not found" | Wrong name/ID | Use `elestio templates search <name>` |
 | "Invalid serverType" | Provider/region/size combo doesn't exist | Check `elestio sizes --provider X` |
+| `--region is required for <provider>` | No default region outside netcup and OVH | Pass `--region`, from `elestio sizes --provider X` |
+| `OVH cannot shrink the disk (X GB -> Y GB)` | OVH resize to a plan with a smaller disk | Choose a plan with an equal or larger disk |
+| `HDD (classic) volumes are not available in ...` | HDD volume in OVH Paris or Milan | Use `--type NVME` |
 | "Service not found" | Wrong vmID or project | Check `elestio services --project X` |
 | "Deployment timeout" | Taking too long | Check dashboard, contact support if > 10 min |
 | "Project not found" | Wrong projectId | Check `elestio projects` |

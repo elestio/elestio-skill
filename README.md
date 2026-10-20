@@ -2,9 +2,9 @@
 
 Agent skill for [Elestio](https://elest.io), following the [Agent Skills](https://agentskills.io) open format.
 
-Deploy and manage services on the Elestio DevOps platform. 400+ open-source templates, 9 cloud providers, 100+ regions.
+Deploy and manage services on the Elestio DevOps platform. 400+ open-source templates, 10 cloud providers, 100+ regions.
 
-Uses the **official Elestio CLI** (`npm install -g elestio`, version 1.2.0 or later), or the tools of the
+Uses the **official Elestio CLI** (`npm install -g elestio`, version 1.4.0 or later), or the tools of the
 **Elestio MCP connector** when an agent has it: `SKILL.md` maps every command to its MCP tool.
 
 ## Installation
