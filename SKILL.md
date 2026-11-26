@@ -181,6 +181,8 @@ MCP `provider` values: `netcup`, `hetzner`, `ovh`, `aws`, `lightsail`, `azure`,
 
 ```bash
 elestio login --email "user@domain.com" --token "xxx_..."
+# Keeps the token out of the shell history and the process list:
+ELESTIO_API_TOKEN="xxx_..." elestio login --email "user@domain.com"
 elestio auth test
 ```
 
@@ -623,6 +625,12 @@ one, use backups instead (`elestio backups remote-take`, scheduled with
 `backups auto-enable`).
 
 ### Access & Credentials
+
+`--json` output masks tokens and secrets the API returns with a service or a pipeline (server
+token, environment values, S3 and cloud credentials). Never ask for them unless the user needs
+one: add `--show-secrets` for that single command, and do not repeat the value in your answer.
+The commands below exist to show a credential, so they print it.
+
 
 ```bash
 elestio credentials <vmID>         # App URL + login
