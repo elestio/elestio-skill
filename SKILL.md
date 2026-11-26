@@ -311,6 +311,10 @@ elestio deploy CI-CD-Target --project 112 --name my-cicd
 # 2. Auto-create pipeline
 elestio cicd create --auto --target <vmID> --name my-app --repo owner/repo --mode github --auth-id <authID>
 # -> Site is live at https://<name>-u<userID>.vm.elestio.app/
+# -> Every push to the branch then rebuilds it. That works because the CLI looks the repo up with
+#    your connected Git account and sends its id and API URL. A repo that connection cannot see is
+#    refused. In a hand-written pipeline.json for a Git repo, leave gitData.repoID out (or "REPLACE"):
+#    `cicd create <file>` fills it in the same way. A Git pipeline without it never receives pushes.
 ```
 
 Use this ONLY for the user's own repository. For catalog software, use
